@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cornerRadius, fitBox, lightVector, uvTransform } from "../dist/geometry.js";
+import { cornerRadius, fitBox, lightVector, softPeak, uvTransform } from "../dist/geometry.js";
+import { Spring } from "../dist/interaction.js";
 import { numericKeys, presets, ranges, resolveMaterial } from "../dist/material.js";
 
 test("later layers win and values stay in range", () => {
@@ -46,4 +47,20 @@ test("light angle zero points up", () => {
 
 test("the element module imports outside a browser", async () => {
   await assert.doesNotReject(import("../dist/element.js"));
+});
+
+test("the peak of a pill is its half height", () => {
+  assert.ok(softPeak(100, 50, 50) > 30 && softPeak(100, 50, 50) <= 50);
+});
+
+test("a spring overshoots, then settles on the target", () => {
+  const spring = new Spring(0, 190, 15);
+  spring.target = 1;
+  let top = 0;
+  for (let i = 0; i < 300; i++) {
+    spring.step(1 / 60);
+    top = Math.max(top, spring.value);
+  }
+  assert.ok(top > 1);
+  assert.equal(spring.value, 1);
 });

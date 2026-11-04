@@ -28,3 +28,10 @@ export function lightVector(angle: number): [number, number] {
   const radians = (angle * Math.PI) / 180;
   return [Math.sin(radians), -Math.cos(radians)];
 }
+
+export function softPeak(halfW: number, halfH: number, radius: number) {
+  const a = halfW + radius;
+  const b = halfH + radius;
+  const lo = Math.min(a, b);
+  return lo * (1 + (lo / Math.max(a, b)) ** 2.7) ** (-1 / 2.7) - radius;
+}

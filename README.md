@@ -99,6 +99,29 @@ Set a preset with `material`, then override anything with an attribute, a `--gla
 `none` · `calm` · `lively`, or your own `{ follow, press, stretch }`.
 Light follows the pointer, the surface swells under a press. `prefers-reduced-motion` turns all of it off.
 
+## Motion
+
+Change an element's size or position in CSS and the glass flows there with a spring, overshoot included.
+Fast moves stretch it, a press swells it and lights it up from under the finger.
+`interaction="none"` and `prefers-reduced-motion` keep it still.
+
+### Merge
+
+Glass inside a group is one body: pieces melt together when they get close and pull apart like liquid.
+
+```html
+<edinstvo-glass-group merge="28" material="regular">
+  <edinstvo-glass></edinstvo-glass>
+  <edinstvo-glass></edinstvo-glass>
+</edinstvo-glass-group>
+```
+
+Up to 8 shapes per group, all drawn in one pass.
+
+### Appear
+
+Add `appear` to materialise on load, or call `show()` and `hide()`. Both return a promise.
+
 ## Backdrop
 
 WebGL can't read the pixels of a page, so glass needs to be told what is behind it.

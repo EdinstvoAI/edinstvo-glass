@@ -18,20 +18,40 @@ const css = `
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   backdrop-filter: blur(16px) saturate(1.6);
 }
+:host([data-grouped]) {
+  box-shadow: none;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:host([data-grouped]) > canvas {
+  display: none;
+}
+:host([data-glass-group]) {
+  display: block;
+  box-shadow: none;
+  border-radius: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 .content {
   display: block;
   position: relative;
   z-index: 1;
   border-radius: inherit;
+  scale: var(--glass-scale, 1);
+  opacity: var(--glass-appear, 1);
 }
 `;
 
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["material", "interaction", "source", "live", "tint", ...materialAttributes.keys()];
+  static observedAttributes = ["material", "interaction", "source", "live", "tint", "merge", "appear", ...materialAttributes.keys()];
 
-  private surface: GlassSurface;
+  protected surface: GlassSurface;
+  private group: EdinstvoGlassGroup | null = null;
   private sourceValue: GlassSource | undefined;
   private materialValue: PresetName | Partial<Material> | undefined;
   private interactionValue: InteractionName | Interaction | undefined;
@@ -49,16 +69,40 @@ export class EdinstvoGlass extends Base {
     content.setAttribute("part", "content");
     content.append(document.createElement("slot"));
     root.append(style, canvas, content);
-    this.surface = new GlassSurface(this, canvas);
+    this.surface = new GlassSurface(this, canvas, {}, this.isGroup);
+  }
+
+  protected get isGroup() {
+    return false;
   }
 
   connectedCallback() {
+    this.group = this.parentElement?.closest<EdinstvoGlassGroup>("[data-glass-group]") ?? null;
+    if (this.group) {
+      this.dataset.grouped = "";
+      this.group.adopt(this);
+      return;
+    }
     this.sync();
     this.surface.connect();
   }
 
   disconnectedCallback() {
+    if (this.group) {
+      this.group.release(this);
+      this.group = null;
+      delete this.dataset.grouped;
+      return;
+    }
     this.surface.disconnect();
+  }
+
+  show() {
+    return this.surface.show();
+  }
+
+  hide() {
+    return this.surface.hide();
   }
 
   attributeChangedCallback() {
@@ -84,7 +128,7 @@ export class EdinstvoGlass extends Base {
   }
 
   get interaction(): InteractionName | Interaction {
-    return this.interactionValue ?? ((this.getAttribute("interaction") ?? "none") as InteractionName);
+    return this.interactionValue ?? ((this.getAttribute("interaction") ?? (this.isGroup ? "lively" : "none")) as InteractionName);
   }
 
   set interaction(value: InteractionName | Interaction) {
@@ -96,13 +140,15 @@ export class EdinstvoGlass extends Base {
     this.surface.invalidate();
   }
 
-  private sync() {
+  protected sync() {
     const live = this.getAttribute("live");
     this.surface.set({
       material: this.composeMaterial(),
       interaction: this.interaction,
       source: this.source,
       live: live === null ? undefined : live !== "false",
+      merge: this.isGroup ? parseFloat(this.getAttribute("merge") ?? "28") : 0,
+      appear: this.hasAttribute("appear"),
     });
   }
 
@@ -122,6 +168,26 @@ export class EdinstvoGlass extends Base {
 
 const presetOf = (name: PresetName) => presets[name] ?? presets.regular;
 
+export class EdinstvoGlassGroup extends EdinstvoGlass {
+  protected get isGroup() {
+    return true;
+  }
+
+  connectedCallback() {
+    this.dataset.glassGroup = "";
+    super.connectedCallback();
+  }
+
+  adopt(child: EdinstvoGlass) {
+    this.surface.track(child);
+  }
+
+  release(child: EdinstvoGlass) {
+    this.surface.untrack(child);
+  }
+}
+
 export function defineGlass(tag = "edinstvo-glass") {
+  if (!customElements.get(`${tag}-group`)) customElements.define(`${tag}-group`, class extends EdinstvoGlassGroup {});
   if (!customElements.get(tag)) customElements.define(tag, class extends EdinstvoGlass {});
 }

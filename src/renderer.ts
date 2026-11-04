@@ -2,14 +2,21 @@ import type { Backdrop, GlassImage } from "./backdrop.js";
 import type { Material } from "./material.js";
 import { blurFragment, fragment, vertex } from "./shader.js";
 
+export const maxShapes = 8;
+
 export interface DrawJob {
   target: CanvasRenderingContext2D;
   backdrop: Backdrop;
   width: number;
   height: number;
   pad: number;
-  size: readonly [number, number];
-  radius: number;
+  boxes: Float32Array;
+  radii: Float32Array;
+  count: number;
+  merge: number;
+  peak: number;
+  appear: number;
+  touch: readonly [number, number, number];
   dpr: number;
   uvOrigin: readonly [number, number];
   uvPerPixel: readonly [number, number];
@@ -18,7 +25,7 @@ export interface DrawJob {
   material: Material;
 }
 
-const uniformNames = ["uCanvas", "uSize", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uViewY", "uPad", "uRadius", "uDpr", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
+const uniformNames = ["uBoxes", "uRadii", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uMerge", "uPeak", "uAppear", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
 const maxTextures = 8;
 const maxTextureSide = 4096;
 
@@ -223,7 +230,13 @@ export class Renderer {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.uniform2f(u.uCanvas, width, height);
-    gl.uniform2f(u.uSize, job.size[0], job.size[1]);
+    gl.uniform4fv(u.uBoxes, job.boxes);
+    gl.uniform1fv(u.uRadii, job.radii);
+    gl.uniform1i(u.uCount, job.count);
+    gl.uniform1f(u.uMerge, Math.max(job.merge, 0.001));
+    gl.uniform1f(u.uPeak, job.peak);
+    gl.uniform1f(u.uAppear, job.appear);
+    gl.uniform3f(u.uTouch, job.touch[0], job.touch[1], job.touch[2]);
     gl.uniform2f(u.uUvOrigin, job.uvOrigin[0], job.uvOrigin[1]);
     gl.uniform2f(u.uUvPerPx, job.uvPerPixel[0], job.uvPerPixel[1]);
     gl.uniform2f(u.uTexSize, texture.width, texture.height);
@@ -231,7 +244,6 @@ export class Renderer {
     gl.uniform3f(u.uTint, job.tint[0], job.tint[1], job.tint[2]);
     gl.uniform1f(u.uViewY, viewY);
     gl.uniform1f(u.uPad, job.pad);
-    gl.uniform1f(u.uRadius, job.radius);
     gl.uniform1f(u.uDpr, job.dpr);
     gl.uniform1f(u.uLight, m.light);
     gl.uniform1f(u.uTransparency, m.transparency);

@@ -6,7 +6,7 @@ export interface Interaction {
 
 export const interactions = {
   none: { follow: 0, press: 0, stretch: 0 },
-  calm: { follow: 0.5, press: 0.4, stretch: 0 },
+  calm: { follow: 0.5, press: 0.4, stretch: 0.4 },
   lively: { follow: 1, press: 1, stretch: 1 },
 } as const satisfies Record<string, Interaction>;
 
@@ -15,7 +15,7 @@ export type InteractionName = keyof typeof interactions;
 export class Spring {
   value: number;
   target: number;
-  private velocity = 0;
+  velocity = 0;
 
   constructor(value = 0, private stiffness = 260, private damping = 20) {
     this.value = this.target = value;
@@ -24,75 +24,145 @@ export class Spring {
   step(dt: number) {
     this.velocity += ((this.target - this.value) * this.stiffness - this.velocity * this.damping) * dt;
     this.value += this.velocity * dt;
-    if (this.settled) {
-      this.value = this.target;
-      this.velocity = 0;
-    }
+    if (this.settled) this.snap(this.target);
+  }
+
+  snap(value: number) {
+    this.value = this.target = value;
+    this.velocity = 0;
+  }
+
+  shift(delta: number) {
+    this.value += delta;
+    this.target += delta;
   }
 
   get settled() {
-    return Math.abs(this.target - this.value) < 0.001 && Math.abs(this.velocity) < 0.01;
+    return Math.abs(this.target - this.value) < 0.01 && Math.abs(this.velocity) < 0.05;
   }
 }
 
-export class Motion {
-  x = new Spring();
-  y = new Spring();
-  held = new Spring();
-  private springs = [this.x, this.y, this.held];
+const liquid = () => new Spring(0, 190, 15);
+const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
+
+export interface ShapeBox { x: number; y: number; halfW: number; halfH: number; radius: number }
+
+export class Shape {
+  x = liquid();
+  y = liquid();
+  w = liquid();
+  h = liquid();
+  pointerX = new Spring();
+  pointerY = new Spring();
+  held = new Spring(0, 320, 22);
+  glow = new Spring(0, 60, 14);
+  touchX = 0;
+  touchY = 0;
+  radius = 0;
+  placed = false;
+  private springs = [this.x, this.y, this.w, this.h, this.pointerX, this.pointerY, this.held, this.glow];
   private cleanup: (() => void) | null = null;
 
-  constructor(private host: HTMLElement, private wake: () => void) {}
+  constructor(readonly element: HTMLElement, private wake: () => void) {}
 
   get moving() {
     return this.springs.some((spring) => !spring.settled);
   }
 
+  get pressed() {
+    return this.held.target === 1;
+  }
+
   attach() {
-    const { host } = this;
-    const move = (event: PointerEvent) => {
-      const rect = host.getBoundingClientRect();
-      this.x.target = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      this.y.target = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+    const { element } = this;
+    const aim = (event: PointerEvent) => {
+      const rect = element.getBoundingClientRect();
+      this.pointerX.target = clamp(((event.clientX - rect.left) / rect.width) * 2 - 1, 1);
+      this.pointerY.target = clamp(((event.clientY - rect.top) / rect.height) * 2 - 1, 1);
+      this.touchX = event.clientX;
+      this.touchY = event.clientY;
       this.wake();
     };
     const leave = () => {
-      this.x.target = this.y.target = this.held.target = 0;
+      if (this.pressed) return;
+      this.pointerX.target = this.pointerY.target = 0;
       this.wake();
     };
-    const down = () => {
+    const down = (event: PointerEvent) => {
+      aim(event);
       this.held.target = 1;
+      this.glow.target = 1;
       this.wake();
+      addEventListener("pointermove", aim);
     };
     const up = () => {
-      this.held.target = 0;
+      if (!this.pressed) return;
+      removeEventListener("pointermove", aim);
+      this.held.target = this.glow.target = 0;
+      this.pointerX.target = this.pointerY.target = 0;
       this.wake();
     };
-    host.addEventListener("pointermove", move);
-    host.addEventListener("pointerleave", leave);
-    host.addEventListener("pointerdown", down);
+    element.addEventListener("pointermove", aim);
+    element.addEventListener("pointerleave", leave);
+    element.addEventListener("pointerdown", down);
     addEventListener("pointerup", up);
+    addEventListener("pointercancel", up);
     this.cleanup = () => {
-      host.removeEventListener("pointermove", move);
-      host.removeEventListener("pointerleave", leave);
-      host.removeEventListener("pointerdown", down);
+      element.removeEventListener("pointermove", aim);
+      element.removeEventListener("pointerleave", leave);
+      element.removeEventListener("pointerdown", down);
       removeEventListener("pointerup", up);
+      removeEventListener("pointercancel", up);
+      removeEventListener("pointermove", aim);
     };
   }
 
   detach() {
     this.cleanup?.();
     this.cleanup = null;
-    this.host.style.scale = "";
+    this.element.style.removeProperty("--glass-scale");
   }
 
-  step(dt: number, interaction: Interaction) {
+  read(rect: DOMRect, scrolled: boolean, animate: boolean, grow: boolean) {
+    const { x, y, w, h } = this;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    if (!this.placed || !animate) {
+      x.snap(cx);
+      y.snap(cy);
+      if (this.placed || !grow || !animate) {
+        w.snap(rect.width);
+        h.snap(rect.height);
+      } else {
+        w.target = rect.width;
+        h.target = rect.height;
+      }
+      this.placed = true;
+      return;
+    }
+    if (scrolled) {
+      x.shift(cx - x.target);
+      y.shift(cy - y.target);
+    }
+    x.target = cx;
+    y.target = cy;
+    w.target = rect.width;
+    h.target = rect.height;
+  }
+
+  step(dt: number) {
     for (const spring of this.springs) spring.step(dt);
-    const grow = this.held.value * interaction.press * 0.05;
-    const pull = this.held.value * interaction.stretch * 0.04;
-    const sideways = Math.abs(this.x.value) - Math.abs(this.y.value);
-    const scaleX = 1 + grow + pull * sideways;
-    const scaleY = 1 + grow - pull * sideways;
-    this.host.style.scale = scaleX === 1 && scaleY === 1 ? "" : `${scaleX} ${scaleY}`;
+  }
+
+  box(interaction: Interaction, scale: number): ShapeBox {
+    const swell = 1 + this.held.value * interaction.press * 0.06;
+    const pull = this.held.value * interaction.stretch * 0.06 * (Math.abs(this.pointerX.value) - Math.abs(this.pointerY.value));
+    const speedX = clamp(this.x.velocity / 2400, 0.22) * interaction.stretch;
+    const speedY = clamp(this.y.velocity / 2400, 0.22) * interaction.stretch;
+    const squash = Math.abs(speedX) - Math.abs(speedY);
+    const halfW = Math.max(this.w.value, 0) / 2 * swell * (1 + pull + squash) * scale;
+    const halfH = Math.max(this.h.value, 0) / 2 * swell * (1 - pull - squash) * scale;
+    this.element.style.setProperty("--glass-scale", swell.toFixed(4));
+    return { x: this.x.value, y: this.y.value, halfW, halfH, radius: Math.min(this.radius, halfW, halfH) };
   }
 }
