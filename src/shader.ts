@@ -7,10 +7,10 @@ void main() {
 export const fragment = `#version 300 es
 precision highp float;
 
-uniform sampler2D uBackdrop;
+uniform sampler2D uBackdrop, uFrosted;
 uniform vec2 uCanvas, uSize, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint;
-uniform float uViewY, uPad, uRadius, uDpr, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint;
+uniform float uViewY, uPad, uRadius, uDpr, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim;
 out vec4 outColor;
 
 const float SOFTNESS = 2.7;
@@ -29,17 +29,8 @@ vec2 toUv(vec2 px) {
   return uUvOrigin + px * uUvPerPx;
 }
 
-vec3 frosted(vec2 px, float radius, float lod) {
-  vec3 sum = vec3(0.0);
-  float total = 0.0;
-  for (int i = 0; i < 16; i++) {
-    float f = (float(i) + 0.5) / 16.0;
-    float angle = float(i) * 2.3999632;
-    float weight = exp(-2.5 * f);
-    sum += textureLod(uBackdrop, toUv(px + vec2(cos(angle), sin(angle)) * radius * sqrt(f)), lod).rgb * weight;
-    total += weight;
-  }
-  return sum / total;
+vec3 pick(vec2 px, float lod) {
+  return uFrost > 0.0 ? texture(uFrosted, toUv(px)).rgb : textureLod(uBackdrop, toUv(px), lod).rgb;
 }
 
 void main() {
@@ -69,13 +60,12 @@ void main() {
 
   vec2 at = px + shift;
   float squeeze = log2(max(max(length(dFdx(at)), length(dFdy(at))) * texels, 1.0));
-  float frostPx = uFrost * 24.0 * uDpr;
-  float lod = max(log2(max(frostPx * texels * 0.8, 1.0)), squeeze);
-  float k = uDispersion * 0.18;
-  vec3 col = frosted(at, frostPx * 1.6, lod);
-  vec3 middle = textureLod(uBackdrop, toUv(at), lod).rgb;
-  col.r += textureLod(uBackdrop, toUv(at - shift * k), lod).r - middle.r;
-  col.b += textureLod(uBackdrop, toUv(at + shift * k), lod).b - middle.b;
+  float k = 0.04 + uDispersion * 0.3;
+  vec3 col = vec3(
+    pick(at - shift * k, squeeze).r,
+    pick(at, squeeze).g,
+    pick(at + shift * k, squeeze).b
+  );
 
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 1.08);
   col = mix(uTint, col, uTransparency);
@@ -88,7 +78,32 @@ void main() {
   float toward = dot(g, uLightDir);
   col += uGlint * pow(s, 5.0) * (pow(max(toward, 0.0), 6.0) + pow(max(-toward, 0.0), 6.0) * 0.4);
 
+  float along = dot(g, uLightDir);
+  float line = smoothstep(-1.6 * uDpr, -0.6 * uDpr, d);
+  col += uRim * line * (0.18 + 0.82 * along * along);
+
   vec3 inside = clamp(col, 0.0, 1.0) * mask;
   float rest = (1.0 - mask) * spill;
   outColor = vec4(inside + spillColor * rest, mask + rest);
+}`;
+
+export const blurFragment = `#version 300 es
+precision highp float;
+
+uniform sampler2D uSource;
+uniform vec2 uStep, uInvSize;
+uniform float uLod;
+out vec4 outColor;
+
+void main() {
+  vec2 uv = gl_FragCoord.xy * uInvSize;
+  vec3 sum = vec3(0.0);
+  float total = 0.0;
+  for (int i = -8; i <= 8; i++) {
+    float x = float(i);
+    float weight = exp(-x * x / 18.0);
+    sum += textureLod(uSource, uv + uStep * x, uLod).rgb * weight;
+    total += weight;
+  }
+  outColor = vec4(sum / total, 1.0);
 }`;

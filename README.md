@@ -77,11 +77,12 @@ Set a preset with `material`, then override anything with an attribute, a `--gla
 | `refraction` | 0 to 1 | How hard the edge bends what is behind it |
 | `depth` | 0 to 96 px | Width of the curved edge |
 | `splay` | 0 to 1 | Spreads the curve from the edge towards the centre |
-| `dispersion` | 0 to 1 | Splits colours along the bend |
+| `dispersion` | 0 to 1 | How far colours split wherever the glass bends |
 | `frost` | 0 to 1 | Matte surface, up to 24 px of blur |
 | `transparency` | 0 to 1 | How much of the backdrop survives the tint |
 | `tint` | any CSS colour | Glass colour. `auto` follows the theme |
 | `light` | 0 to 1 | Shading across the curve, bright towards the light and dark away from it |
+| `rim` | 0 to 1 | Thin light line along the edge, brightest in line with the light |
 | `glint` | 0 to 1 | Sharp highlight along the edge. Off in every preset |
 | `light-angle` | -180 to 180° | Where the light comes from. 0 is the top |
 | `bloom` | 0 to 1 | Glow inside the glass and around it |
