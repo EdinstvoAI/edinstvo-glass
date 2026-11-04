@@ -25,19 +25,15 @@ float softMin(float a, float b) {
   return lo * pow(1.0 + pow(lo / max(a, b), SOFTNESS), -1.0 / SOFTNESS);
 }
 
-float noise(vec2 p) {
-  return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
-}
-
 vec2 toUv(vec2 px) {
   return uUvOrigin + px * uUvPerPx;
 }
 
-vec3 frosted(vec2 px, float radius, float lod, float spin) {
+vec3 frosted(vec2 px, float radius, float lod) {
   vec3 sum = vec3(0.0);
   for (int i = 0; i < 8; i++) {
     float f = float(i) + 0.5;
-    float angle = spin + f * 2.3999632;
+    float angle = f * 2.3999632;
     sum += textureLod(uBackdrop, toUv(px + vec2(cos(angle), sin(angle)) * radius * sqrt(f / 8.0)), lod).rgb;
   }
   return sum * 0.125;
@@ -71,10 +67,9 @@ void main() {
   vec2 at = px + shift;
   float squeeze = log2(max(max(length(dFdx(at)), length(dFdy(at))) * texels, 1.0));
   float frostPx = uFrost * 24.0 * uDpr;
-  float lod = max(log2(max(frostPx * texels * 0.5, 1.0)), squeeze);
-  float spin = noise(gl_FragCoord.xy) * 6.2831853;
+  float lod = max(log2(max(frostPx * texels * 0.8, 1.0)), squeeze);
   float k = uDispersion * 0.18;
-  vec3 col = frosted(at, frostPx, lod, spin);
+  vec3 col = frosted(at, frostPx, lod);
   vec3 middle = textureLod(uBackdrop, toUv(at), lod).rgb;
   col.r += textureLod(uBackdrop, toUv(at - shift * k), lod).r - middle.r;
   col.b += textureLod(uBackdrop, toUv(at + shift * k), lod).b - middle.b;
