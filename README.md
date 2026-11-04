@@ -59,3 +59,19 @@ npm test
 ## License
 
 [MIT](LICENSE)
+
+## Lighting
+
+Set the light once for the page. Any element can replace one setting and keep the rest.
+
+```js
+import { setSceneLight } from "@edinstvo/glass";
+
+setSceneLight({ direction: "top-left", intensity: "80%", color: "white", softness: 0.6 });
+```
+
+```html
+<edinstvo-glass light-color="blue" reflection="0.6" dynamic-refraction="0.5"></edinstvo-glass>
+```
+
+See [Lighting](https://glass.makark.ru/docs/lighting/).
