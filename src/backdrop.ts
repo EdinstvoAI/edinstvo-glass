@@ -1,3 +1,4 @@
+import { captured } from "./capture.js";
 import { parseColor, prefersDark } from "./color.js";
 import { type Box, type Fit, fitBox } from "./geometry.js";
 
@@ -68,8 +69,16 @@ function loadImage(url: string, onReady: () => void) {
   return image;
 }
 
+function fromCapture(element: Element, content: boolean, onReady: () => void): Backdrop | null {
+  const canvas = captured(element, content, onReady);
+  if (!canvas) return null;
+  const rect = element.getBoundingClientRect();
+  return { image: canvas, width: canvas.width, height: canvas.height, map: { x: rect.left, y: rect.top, w: rect.width, h: rect.height }, live: false };
+}
+
 function fromBackground(element: Element, onReady: () => void): Backdrop | null | undefined {
   const style = getComputedStyle(element);
+  if (style.backgroundImage.includes("gradient(")) return fromCapture(element, false, onReady);
   const url = /url\(["']?(.+?)["']?\)/.exec(style.backgroundImage)?.[1];
   if (url) {
     const image = loadImage(url, onReady);
@@ -104,7 +113,8 @@ export function resolveBackdrop(host: HTMLElement, rect: DOMRect, source: GlassS
   if (typeof source === "string") {
     const element = document.querySelector(source);
     if (element instanceof HTMLImageElement || element instanceof HTMLCanvasElement || element instanceof HTMLVideoElement) return fromImage(element, onReady);
-    return element ? (fromBackground(element, onReady) ?? null) : null;
+    if (!element) return null;
+    return /url\(/.test(getComputedStyle(element).backgroundImage) && !element.childElementCount ? (fromBackground(element, onReady) ?? null) : fromCapture(element, true, onReady);
   }
   return fromImage(source, onReady);
 }
