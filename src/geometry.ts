@@ -33,5 +33,8 @@ export function softPeak(halfW: number, halfH: number, radius: number) {
   const a = halfW + radius;
   const b = halfH + radius;
   const lo = Math.min(a, b);
-  return lo * (1 + (lo / Math.max(a, b)) ** 2.7) ** (-1 / 2.7) - radius;
+  const soft = lo * (1 + (lo / Math.max(a, b)) ** 2.7) ** (-1 / 2.7) - radius;
+  const half = Math.min(halfW, halfH);
+  const round = half ? radius / half : 0;
+  return soft + (half - soft) * round;
 }
