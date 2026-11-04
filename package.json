@@ -1,27 +1,54 @@
 {
   "name": "@edinstvo/glass",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.1",
   "description": "Liquid glass for the web: one WebGL material that looks the same on macOS and Windows.",
   "license": "MIT",
   "type": "module",
-  "repository": "github:EdinstvoAI/edinstvo-glass",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EdinstvoAI/edinstvo-glass.git"
+  },
   "homepage": "https://github.com/EdinstvoAI/edinstvo-glass",
-  "keywords": ["glass", "liquid-glass", "webgl", "web-components", "shader", "material"],
+  "keywords": [
+    "glass",
+    "liquid-glass",
+    "webgl",
+    "web-components",
+    "shader",
+    "material"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./define": { "types": "./dist/define.d.ts", "default": "./dist/define.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./define": {
+      "types": "./dist/define.d.ts",
+      "default": "./dist/define.js"
+    },
     "./glass.css": "./css/glass.css"
   },
-  "files": ["dist", "css"],
-  "sideEffects": ["./dist/define.js", "*.css"],
+  "files": [
+    "dist",
+    "css"
+  ],
+  "sideEffects": [
+    "./dist/define.js",
+    "*.css"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "tsc && node --test",
     "demo": "tsc && node demo/serve.mjs",
     "prepublishOnly": "npm test"
   },
-  "publishConfig": { "access": "public", "provenance": true },
-  "devDependencies": { "typescript": "^5" }
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
 }
