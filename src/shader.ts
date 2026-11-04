@@ -130,10 +130,10 @@ void main() {
   col += uGlint * uLightColor * pow(s, 5.0) * (pow(max(toward, 0.0), sharp) + pow(max(-toward, 0.0), sharp) * 0.4);
 
   if (uReflection > 0.0) {
-    vec3 around = textureLod(uBackdrop, toUv(px + g * (2.0 * f.y + band)), haloLod * 0.5).rgb;
-    float grazing = mix(0.12, 1.0, s * s * s);
-    float shine = 0.7 + uLight * (0.3 + 0.5 * toward);
-    col = mix(col, around * mix(vec3(1.0), uLightColor, 0.6) * shine, uReflection * grazing);
+    vec3 around = textureLod(uBackdrop, toUv(px + g * (2.0 * f.y + band)), haloLod * 0.35).rgb;
+    float shine = 0.8 + uLight * (0.2 + 0.6 * toward);
+    vec3 mirrored = clamp(around * mix(vec3(1.0), uLightColor, 0.6) * shine, 0.0, 1.0);
+    col = mix(col, 1.0 - (1.0 - col) * (1.0 - mirrored), uReflection * s * s);
   }
 
   float line = smoothstep(-1.6 * uDpr, -0.6 * uDpr, d);
