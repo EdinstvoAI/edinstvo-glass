@@ -328,6 +328,18 @@ export class GlassSurface {
       height: `${bottom - top}px`,
     });
 
+    const shade = this.host.shadowRoot?.querySelector<HTMLElement>(".shade");
+    if (shade && list.length === 1) {
+      const [box] = list;
+      Object.assign(shade.style, {
+        inset: "auto",
+        left: `${box.x - box.halfW - rect.left}px`,
+        top: `${box.y - box.halfH - rect.top}px`,
+        width: `${box.halfW * 2}px`,
+        height: `${box.halfH * 2}px`,
+      });
+    }
+
     let peak = Infinity;
     list.forEach((box, index) => {
       this.boxes.set([(box.x - left) * dpr, (box.y - top) * dpr, box.halfW * dpr, box.halfH * dpr], index * 4);

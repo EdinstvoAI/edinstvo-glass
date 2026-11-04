@@ -11,7 +11,18 @@ const css = `
   position: relative;
   isolation: isolate;
   border-radius: var(--glass-radius, 24px);
+}
+.shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
   box-shadow: var(--glass-shadow, 0 8px 32px rgb(0 0 0 / .1));
+  pointer-events: none;
+}
+:host([data-grouped]) .shade,
+:host([data-glass-group]) .shade {
+  display: none;
 }
 :host(:not([data-engine="webgl"])) {
   background: var(--glass-fallback, rgb(255 255 255 / .22));
@@ -19,7 +30,6 @@ const css = `
   backdrop-filter: blur(16px) saturate(1.6);
 }
 :host([data-grouped]) {
-  box-shadow: none;
   background: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -29,7 +39,6 @@ const css = `
 }
 :host([data-glass-group]) {
   display: block;
-  box-shadow: none;
   border-radius: 0;
   background: none;
   -webkit-backdrop-filter: none;
@@ -66,11 +75,13 @@ export class EdinstvoGlass extends Base {
     const canvas = document.createElement("canvas");
     canvas.setAttribute("part", "glass");
     placeCanvas(canvas);
+    const shade = document.createElement("i");
+    shade.className = "shade";
     const content = document.createElement("span");
     content.className = "content";
     content.setAttribute("part", "content");
     content.append(document.createElement("slot"));
-    root.append(style, canvas, content);
+    root.append(style, shade, canvas, content);
     this.surface = new GlassSurface(this, canvas, {}, this.isGroup);
   }
 
