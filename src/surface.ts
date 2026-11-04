@@ -62,7 +62,7 @@ export class GlassSurface {
   private forced = true;
   private moved = false;
   private signature = "";
-  private lastBackdrop: Backdrop | null = null;
+  private live = false;
   private options: GlassOptions;
   private material = resolveMaterial();
   private interaction: Interaction = interactions.none;
@@ -140,18 +140,14 @@ export class GlassSurface {
     const height = this.host.offsetHeight;
     if (!width || !height) return moving;
 
-    const rect = this.host.getBoundingClientRect();
-    const needed = this.forced || this.moved || moving;
-    let live = this.lastBackdrop?.live ?? false;
-    if (this.options.live === false) live = false;
-    if (!needed && !live && !this.options.live) return false;
+    if (!this.forced && !this.moved && !moving && !this.live) return false;
 
+    const rect = this.host.getBoundingClientRect();
     const backdrop = resolveBackdrop(this.host, rect, this.options.source ?? "auto", () => this.invalidate());
     if (!backdrop) return moving;
-    this.lastBackdrop = backdrop;
-    const isLive = this.options.live ?? (backdrop.live && !(backdrop.image instanceof HTMLCanvasElement));
+    this.live = this.options.live ?? (backdrop.live && backdrop.image instanceof HTMLVideoElement);
     const signature = `${rect.left},${rect.top},${rect.width},${rect.height},${backdrop.map.x},${backdrop.map.y},${backdrop.map.w},${backdrop.map.h}`;
-    const skip = !this.forced && !moving && !isLive && signature === this.signature;
+    const skip = !this.forced && !moving && !this.live && signature === this.signature;
     this.moved = false;
     if (skip) return false;
 
@@ -164,7 +160,7 @@ export class GlassSurface {
     }
     this.forced = false;
     this.signature = signature;
-    return moving || motion.moving || isLive;
+    return moving || motion.moving || this.live;
   }
 
   private paint(backdrop: Backdrop, rect: DOMRect, width: number, height: number) {

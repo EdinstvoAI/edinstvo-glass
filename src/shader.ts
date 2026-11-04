@@ -10,19 +10,19 @@ precision highp float;
 uniform sampler2D uBackdrop;
 uniform vec2 uCanvas, uSize, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint;
-uniform float uViewY, uPad, uRadius, uDpr, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom;
+uniform float uViewY, uPad, uRadius, uDpr, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint;
 out vec4 outColor;
+
+const float SOFTNESS = 2.7;
 
 float roundedBox(vec2 p, vec2 b, float r) {
   vec2 q = abs(p) - b + r;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 
-vec2 outward(vec2 p, vec2 b, float r) {
-  vec2 q = abs(p) - b + r;
-  vec2 s = vec2(p.x < 0.0 ? -1.0 : 1.0, p.y < 0.0 ? -1.0 : 1.0);
-  if (q.x > 0.0 && q.y > 0.0) return normalize(q) * s;
-  return q.x > q.y ? vec2(s.x, 0.0) : vec2(0.0, s.y);
+float softMin(float a, float b) {
+  float lo = min(a, b);
+  return lo * pow(1.0 + pow(lo / max(a, b), SOFTNESS), -1.0 / SOFTNESS);
 }
 
 float noise(vec2 p) {
@@ -61,15 +61,18 @@ void main() {
     return;
   }
 
-  float band = mix(max(uDepth * uDpr, 1.0), min(half_.x, half_.y), uSplay);
-  float t = clamp(-d / band, 0.0, 1.0);
-  float s = 1.0 - t;
+  // ── a p-norm of the edge distances: smooth everywhere inside, and p = 2.7 lands on the rounded corner
+  vec2 edges = max(half_ - abs(c), 0.0) + uRadius + 0.001;
+  float soft = softMin(edges.x, edges.y);
+  float peak = softMin(half_.x + uRadius, half_.y + uRadius) - uRadius;
+  float band = min(mix(max(uDepth * uDpr, 1.0), peak, uSplay * uSplay), peak);
+  float s = 1.0 - clamp((soft - uRadius) / band, 0.0, 1.0);
   float height = sqrt(max(1.0 - s * s, 0.0));
-  vec2 g = outward(c, half_, uRadius);
-  vec3 n = normalize(vec3(g * s / max(height, 0.14), 1.0));
+  vec2 g = normalize(pow(vec2(soft) / edges, vec2(SOFTNESS + 1.0)) * sign(c) + 0.00001);
+  vec3 n = normalize(vec3(g * s * s / max(height, 0.14), 1.0));
 
   vec3 ray = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.5);
-  vec2 shift = ray.xy / max(-ray.z, 0.2) * band * (0.35 + height) * uRefraction * 2.0;
+  vec2 shift = ray.xy / max(-ray.z, 0.5) * band * (0.35 + height) * uRefraction * 1.2;
 
   float frostPx = uFrost * 24.0 * uDpr;
   float lod = log2(max(frostPx * texels, 1.0));
@@ -86,15 +89,12 @@ void main() {
   col = mix(uTint, col, uTransparency);
   col += halo * uBloom * 0.22 * (0.35 + s);
 
-  vec3 l = normalize(vec3(uLightDir, 0.55));
-  vec3 opposite = normalize(vec3(-uLightDir, 0.55));
-  vec3 view = vec3(0.0, 0.0, 1.0);
-  float glint = pow(max(dot(n, normalize(l + view)), 0.0), 60.0);
-  float echo = pow(max(dot(n, normalize(opposite + view)), 0.0), 60.0);
-  float fresnel = pow(1.0 - n.z, 3.0);
-  float facing = dot(g, uLightDir);
-  float rim = smoothstep(-1.6 * uDpr, 0.0, d) * (0.2 + 0.8 * facing * facing);
-  col += uLight * (glint * 0.75 + echo * 0.3 + fresnel * 0.14 + rim * 0.6);
+  float facing = dot(n.xy, uLightDir);
+  col += uLight * (max(facing, 0.0) * 0.5 + dot(c / half_, uLightDir) * 0.05);
+  col *= 1.0 - uLight * max(-facing, 0.0) * 0.35;
+
+  float toward = dot(g, uLightDir);
+  col += uGlint * pow(s, 5.0) * (pow(max(toward, 0.0), 6.0) + pow(max(-toward, 0.0), 6.0) * 0.4);
 
   vec3 inside = clamp(col, 0.0, 1.0) * mask;
   float rest = (1.0 - mask) * spill;

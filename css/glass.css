@@ -1,6 +1,6 @@
 :root {
   --glass-radius: 24px;
-  --glass-shadow: 0 8px 32px rgb(0 0 0 / .14);
+  --glass-shadow: 0 8px 32px rgb(0 0 0 / .1);
   --glass-fallback: rgb(249 249 249 / .22);
   --glass-edge: rgb(255 255 255 / .5);
 }

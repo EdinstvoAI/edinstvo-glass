@@ -18,7 +18,7 @@ export interface DrawJob {
   material: Material;
 }
 
-const uniformNames = ["uCanvas", "uSize", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uViewY", "uPad", "uRadius", "uDpr", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom"] as const;
+const uniformNames = ["uCanvas", "uSize", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uViewY", "uPad", "uRadius", "uDpr", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint"] as const;
 const maxTextures = 8;
 const maxTextureSide = 4096;
 
@@ -160,6 +160,7 @@ export class Renderer {
     gl.uniform1f(u.uFrost, m.frost);
     gl.uniform1f(u.uSplay, m.splay);
     gl.uniform1f(u.uBloom, m.bloom);
+    gl.uniform1f(u.uGlint, m.glint);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // ── the drawing buffer is only valid until this task ends, so copy out right here
     job.target.clearRect(0, 0, width, height);

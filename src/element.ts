@@ -11,7 +11,7 @@ const css = `
   position: relative;
   isolation: isolate;
   border-radius: var(--glass-radius, 24px);
-  box-shadow: var(--glass-shadow, 0 8px 32px rgb(0 0 0 / .14));
+  box-shadow: var(--glass-shadow, 0 8px 32px rgb(0 0 0 / .1));
 }
 :host(:not([data-engine="webgl"])) {
   background: var(--glass-fallback, rgb(255 255 255 / .22));
