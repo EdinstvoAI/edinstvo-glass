@@ -1,16 +1,15 @@
 import { type Backdrop, type GlassSource, resolveBackdrop } from "./backdrop.js";
 import { resolveTint } from "./color.js";
 import { cornerRadius, lightVector, softPeak, uvTransform } from "./geometry.js";
-import { type Interaction, type InteractionName, Shape, type ShapeBox, Spring, interactions } from "./interaction.js";
-import { type Material, type PresetName, kebab, numericKeys, presets, resolveMaterial } from "./material.js";
+import { type Motion, Shape, type ShapeBox, Spring, motionKeys, resolveMotion, still } from "./interaction.js";
+import { type Material, kebab, numericKeys, resolveMaterial } from "./material.js";
 import { Renderer, maxShapes } from "./renderer.js";
 
 export interface GlassOptions {
-  material?: PresetName | Partial<Material>;
-  interaction?: InteractionName | Interaction;
+  material?: Partial<Material>;
+  motion?: Partial<Motion>;
   source?: GlassSource;
   live?: boolean;
-  merge?: number;
   appear?: boolean;
 }
 
@@ -33,6 +32,20 @@ function tick(now: number) {
   for (const surface of surfaces) again = surface.update(dt) || again;
   if (again) wake();
 }
+
+function readMotion(element: HTMLElement) {
+  const style = getComputedStyle(element);
+  const motion: Partial<Motion> = {};
+  for (const key of motionKeys) {
+    const value = element.getAttribute(key) ?? style.getPropertyValue(`--glass-${key}`);
+    if (value) motion[key] = parseFloat(value);
+  }
+  return motion;
+}
+
+interface Frame { left: number; top: number; right: number; bottom: number }
+
+const overlap = (a: Frame, b: Frame) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
 function nudgeAll() {
   for (const surface of surfaces) surface.nudge();
@@ -67,12 +80,15 @@ export class GlassSurface {
   private connected = false;
   private signature = "";
   private material = resolveMaterial();
-  private interaction: Interaction = interactions.none;
+  private reduced = false;
+  private frame: Frame | null = null;
+  private stack: HTMLCanvasElement | null = null;
   private tint: readonly [number, number, number] = [1, 1, 1];
   private appear = new Spring(1, 120, 15);
   private settle: (() => void) | null = null;
   private boxes = new Float32Array(maxShapes * 4);
   private radii = new Float32Array(maxShapes);
+  private joins = new Float32Array(maxShapes);
 
   constructor(private host: HTMLElement, private canvas: HTMLCanvasElement, private options: GlassOptions = {}, private group = false) {
     this.context = canvas.getContext("2d")!;
@@ -162,15 +178,13 @@ export class GlassSurface {
     }
     const tint = style.getPropertyValue("--glass-tint").trim();
     if (tint) tokens.tint = tint;
-    const { material = "regular", interaction = this.group ? "lively" : "none" } = this.options;
-    this.material = typeof material === "string"
-      ? resolveMaterial(presets[material] ?? presets.regular, tokens)
-      : resolveMaterial(tokens, material);
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    this.interaction = reduced ? interactions.none : typeof interaction === "string" ? (interactions[interaction] ?? interactions.none) : interaction;
+    this.material = resolveMaterial(tokens, this.options.material);
+    this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.tint = resolveTint(this.material.tint);
+    const base = resolveMotion(this.options.motion, readMotion(this.host));
     for (const shape of this.shapes.values()) {
       const { element } = shape;
+      shape.motion = this.reduced ? still : element === this.host ? base : resolveMotion(base, readMotion(element));
       shape.radius = cornerRadius(getComputedStyle(element).borderTopLeftRadius, element.offsetWidth, element.offsetHeight);
     }
     this.invalidate();
@@ -183,18 +197,17 @@ export class GlassSurface {
   }
 
   update(dt: number) {
-    const animate = this.interaction !== interactions.none;
     if (!this.visible) return false;
     if (!this.forced && !this.moved && !this.live && !this.moving) return false;
 
     const rect = this.host.getBoundingClientRect();
     const grow = this.signature !== "";
     for (const shape of this.shapes.values()) {
-      shape.read(shape.element.getBoundingClientRect(), this.moved, animate, grow);
-      if (animate) shape.step(dt);
+      shape.read(shape.element.getBoundingClientRect(), this.moved, grow);
+      shape.step(dt);
     }
-    if (animate) this.appear.step(dt);
-    else this.appear.snap(this.appear.target);
+    if (this.reduced) this.appear.snap(this.appear.target);
+    else this.appear.step(dt);
     this.host.style.setProperty("--glass-appear", this.appear.value.toFixed(3));
     if (this.appear.settled && this.settle) {
       this.settle();
@@ -229,7 +242,7 @@ export class GlassSurface {
     const scale = 0.84 + 0.16 * this.appear.value;
     const list: ShapeBox[] = [];
     for (const shape of this.shapes.values()) {
-      const box = shape.box(this.interaction, scale);
+      const box = shape.box(scale);
       if (box.halfW > 0.5 && box.halfH > 0.5) list.push(box);
     }
     return list;
@@ -243,12 +256,38 @@ export class GlassSurface {
     return best;
   }
 
-  private paint(backdrop: Backdrop, rect: DOMRect, list: ShapeBox[]) {
+  private above(other: GlassSurface) {
+    const position = other.host.compareDocumentPosition(this.host);
+    return Boolean(position & Node.DOCUMENT_POSITION_FOLLOWING) && !(position & Node.DOCUMENT_POSITION_CONTAINED_BY);
+  }
+
+  private layered(backdrop: Backdrop, frame: Frame, dpr: number): Backdrop {
+    const under = [...surfaces].filter((other) => other !== this && other.frame && overlap(other.frame, frame) && this.above(other));
+    if (!under.length) return backdrop;
+    const width = Math.round((frame.right - frame.left) * dpr);
+    const height = Math.round((frame.bottom - frame.top) * dpr);
+    this.stack ??= document.createElement("canvas");
+    this.stack.width = width;
+    this.stack.height = height;
+    const context = this.stack.getContext("2d")!;
+    context.scale(dpr, dpr);
+    const { map } = backdrop;
+    context.drawImage(backdrop.image, map.x - frame.left, map.y - frame.top, map.w, map.h);
+    for (const other of under) {
+      const f = other.frame!;
+      context.drawImage(other.canvas, f.left - frame.left, f.top - frame.top, f.right - f.left, f.bottom - f.top);
+    }
+    return { image: this.stack, width, height, live: true, map: { x: frame.left, y: frame.top, w: frame.right - frame.left, h: frame.bottom - frame.top } };
+  }
+
+  private paint(source: Backdrop, rect: DOMRect, list: ShapeBox[]) {
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const left = Math.floor(Math.min(...list.map((b) => b.x - b.halfW))) - pad;
     const top = Math.floor(Math.min(...list.map((b) => b.y - b.halfH))) - pad;
     const right = Math.ceil(Math.max(...list.map((b) => b.x + b.halfW))) + pad;
     const bottom = Math.ceil(Math.max(...list.map((b) => b.y + b.halfH))) + pad;
+    const frame = { left, top, right, bottom };
+    const backdrop = this.layered(source, frame, dpr);
     const canvasW = Math.round((right - left) * dpr);
     const canvasH = Math.round((bottom - top) * dpr);
     if (this.canvas.width !== canvasW || this.canvas.height !== canvasH) {
@@ -266,16 +305,17 @@ export class GlassSurface {
     list.forEach((box, index) => {
       this.boxes.set([(box.x - left) * dpr, (box.y - top) * dpr, box.halfW * dpr, box.halfH * dpr], index * 4);
       this.radii[index] = box.radius * dpr;
+      this.joins[index] = box.join * dpr;
       peak = Math.min(peak, softPeak(box.halfW, box.halfH, box.radius) * dpr);
     });
 
     const shape = this.active();
-    const follow = this.interaction.follow;
+    const follow = shape?.motion.follow ?? 0;
     const [baseX, baseY] = lightVector(this.material.lightAngle);
     const x = baseX + (shape?.pointerX.value ?? 0) * follow;
     const y = baseY + (shape?.pointerY.value ?? 0) * follow;
     const length = Math.hypot(x, y) || 1;
-    const strength = (shape?.glow.value ?? 0) * Math.min(this.interaction.press, 1);
+    const strength = (shape?.glow.value ?? 0) * (shape?.motion.glow ?? 0) * 2;
     const { origin, perPixel } = uvTransform({ left, top }, backdrop.map, 1, 1, dpr);
 
     Renderer.shared!.draw({
@@ -287,7 +327,7 @@ export class GlassSurface {
       boxes: this.boxes,
       radii: this.radii,
       count: list.length,
-      merge: (this.options.merge ?? 0) * dpr,
+      joins: this.joins,
       peak: Math.max(peak, 1),
       appear: Math.max(this.appear.value, 0),
       touch: [((shape?.touchX ?? 0) - left) * dpr, ((shape?.touchY ?? 0) - top) * dpr, strength],
@@ -298,6 +338,10 @@ export class GlassSurface {
       tint: this.tint,
       material: this.material,
     });
+    this.frame = frame;
+    for (const other of surfaces) {
+      if (other !== this && other.frame && overlap(other.frame, frame) && other.above(this)) other.invalidate();
+    }
   }
 
   private fallBack() {

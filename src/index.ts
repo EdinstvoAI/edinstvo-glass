@@ -1,5 +1,5 @@
 export { EdinstvoGlass, EdinstvoGlassGroup, defineGlass } from "./element.js";
 export { GlassSurface, attachGlass, type GlassOptions } from "./surface.js";
-export { type Material, type PresetName, presets, ranges, resolveMaterial } from "./material.js";
-export { type Interaction, type InteractionName, interactions } from "./interaction.js";
+export { type Material, defaults, ranges, resolveMaterial } from "./material.js";
+export { type Motion, motionDefaults, motionRanges, resolveMotion } from "./interaction.js";
 export type { GlassImage, GlassSource } from "./backdrop.js";

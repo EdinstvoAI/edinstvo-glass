@@ -51,7 +51,7 @@ npm i @edinstvo/glass
   import "@edinstvo/glass/define";
 </script>
 
-<edinstvo-glass material="regular" interaction="calm">
+<edinstvo-glass frost="0.4" refraction="0.5">
   Hello
 </edinstvo-glass>
 ```
@@ -63,14 +63,14 @@ Not a fan of custom elements? Attach glass to any node:
 ```js
 import { attachGlass } from "@edinstvo/glass";
 
-const glass = attachGlass(element, { material: "frost" });
+const glass = attachGlass(element, { material: { frost: 0.7 } });
 glass.set({ material: { frost: 0.4 } });
 glass.destroy();
 ```
 
 ## Material
 
-Set a preset with `material`, then override anything with an attribute, a `--glass-*` CSS variable or a property.
+There are no types of glass, only settings. Set anything with an attribute, a `--glass-*` CSS variable or the `material` property. The defaults are tuned against the system glass on macOS, pixel by pixel.
 
 | Attribute | Range | What it does |
 |---|---|---|
@@ -88,35 +88,33 @@ Set a preset with `material`, then override anything with an attribute, a `--gla
 | `light-angle` | -180 to 180° | Where the light comes from. 0 is the top |
 | `bloom` | 0 to 1 | Glow inside the glass and around it |
 
-### Presets
-
-`pure` · `clear` · `regular` · `frost` · `lens` · `prism`
-
-`regular` and `clear` are tuned against the system glass on macOS, pixel by pixel. `pure` is the same lens with no frost at all.
-
-### Interaction
-
-`none` · `calm` · `lively`, or your own `{ follow, press, stretch }`.
-Light follows the pointer, the surface swells under a press. `prefers-reduced-motion` turns all of it off.
-
 ## Motion
 
 Change an element's size or position in CSS and the glass flows there with a spring, overshoot included.
-Fast moves stretch it, a press swells it and lights it up from under the finger.
-`interaction="none"` and `prefers-reduced-motion` keep it still.
+Each of these is its own setting, on a group or on a single child. `prefers-reduced-motion` turns them all off.
+
+| Attribute | Range | What it does |
+|---|---|---|
+| `morph` | 0 to 1 | Softness of the flow. 0 jumps straight to the new shape |
+| `jelly` | 0 to 1 | Stretch while moving and under a drag |
+| `press` | 0 to 1 | How much the glass swells when held |
+| `glow` | 0 to 1 | Light that spreads from under the finger |
+| `follow` | 0 to 1 | How far the light chases the pointer |
+| `merge` | 0 to 64 px | Melts this element into others that have it too. 0 stays separate |
 
 ### Merge
 
-Glass inside a group is one body: pieces melt together when they get close and pull apart like liquid.
+Merging is opt-in, per element. Give `merge` to the pieces that should become one shape: they melt together when they get close and pull apart like liquid. Everything else in the group stays separate.
 
 ```html
-<edinstvo-glass-group merge="28" material="regular">
-  <edinstvo-glass></edinstvo-glass>
+<edinstvo-glass-group>
+  <edinstvo-glass merge="28"></edinstvo-glass>
+  <edinstvo-glass merge="28"></edinstvo-glass>
   <edinstvo-glass></edinstvo-glass>
 </edinstvo-glass-group>
 ```
 
-Up to 8 shapes per group, all drawn in one pass.
+Up to 8 shapes per group, all drawn in one pass. `merge` on the group sets it for every child, `merge="0"` on a child opts out.
 
 ### Appear
 
@@ -146,6 +144,7 @@ on top of `backdrop-filter`. The element falls back to the same look by itself w
 
 ## Limits
 
+- Glass sees other glass under it. Later in the document means on top, `z-index` is not read yet.
 - Text and regular DOM behind the glass aren't refracted, only the sources listed above. Draw them to a canvas if you need them.
 - CSS gradients aren't read yet. Glass skips them and looks further down the stack.
 - Cross-origin images need CORS headers, otherwise that element falls back to CSS.

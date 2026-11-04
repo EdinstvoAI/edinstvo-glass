@@ -1,6 +1,6 @@
 import type { GlassSource } from "./backdrop.js";
-import type { Interaction, InteractionName } from "./interaction.js";
-import { type Material, type PresetName, kebab, numericKeys, presets } from "./material.js";
+import { motionKeys } from "./interaction.js";
+import { type Material, kebab, numericKeys } from "./material.js";
 import { GlassSurface, placeCanvas } from "./surface.js";
 
 const Base = (globalThis.HTMLElement ?? class {}) as typeof HTMLElement;
@@ -48,13 +48,12 @@ const css = `
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["material", "interaction", "source", "live", "tint", "merge", "appear", ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "appear", ...motionKeys, ...materialAttributes.keys()];
 
   protected surface: GlassSurface;
   private group: EdinstvoGlassGroup | null = null;
   private sourceValue: GlassSource | undefined;
-  private materialValue: PresetName | Partial<Material> | undefined;
-  private interactionValue: InteractionName | Interaction | undefined;
+  private materialValue: Partial<Material> | undefined;
 
   constructor() {
     super();
@@ -106,7 +105,8 @@ export class EdinstvoGlass extends Base {
   }
 
   attributeChangedCallback() {
-    if (this.isConnected) this.sync();
+    if (this.group) this.group.refresh();
+    else if (this.isConnected) this.sync();
   }
 
   get source() {
@@ -118,21 +118,12 @@ export class EdinstvoGlass extends Base {
     this.sync();
   }
 
-  get material(): PresetName | Partial<Material> {
-    return this.materialValue ?? ((this.getAttribute("material") ?? "regular") as PresetName);
+  get material(): Partial<Material> {
+    return this.materialValue ?? {};
   }
 
-  set material(value: PresetName | Partial<Material>) {
+  set material(value: Partial<Material>) {
     this.materialValue = value;
-    this.sync();
-  }
-
-  get interaction(): InteractionName | Interaction {
-    return this.interactionValue ?? ((this.getAttribute("interaction") ?? (this.isGroup ? "lively" : "none")) as InteractionName);
-  }
-
-  set interaction(value: InteractionName | Interaction) {
-    this.interactionValue = value;
     this.sync();
   }
 
@@ -144,15 +135,13 @@ export class EdinstvoGlass extends Base {
     const live = this.getAttribute("live");
     this.surface.set({
       material: this.composeMaterial(),
-      interaction: this.interaction,
       source: this.source,
       live: live === null ? undefined : live !== "false",
-      merge: this.isGroup ? parseFloat(this.getAttribute("merge") ?? "28") : 0,
       appear: this.hasAttribute("appear"),
     });
   }
 
-  private composeMaterial(): PresetName | Partial<Material> {
+  private composeMaterial(): Partial<Material> {
     const overrides: Partial<Material> = {};
     for (const [attribute, key] of materialAttributes) {
       const value = this.getAttribute(attribute);
@@ -160,13 +149,9 @@ export class EdinstvoGlass extends Base {
     }
     const tint = this.getAttribute("tint");
     if (tint) overrides.tint = tint;
-    if (!Object.keys(overrides).length) return this.material;
-    const base = this.material;
-    return typeof base === "string" ? { ...presetOf(base), ...overrides } : { ...base, ...overrides };
+    return { ...this.material, ...overrides };
   }
 }
-
-const presetOf = (name: PresetName) => presets[name] ?? presets.regular;
 
 export class EdinstvoGlassGroup extends EdinstvoGlass {
   protected get isGroup() {
@@ -184,6 +169,10 @@ export class EdinstvoGlassGroup extends EdinstvoGlass {
 
   release(child: EdinstvoGlass) {
     this.surface.untrack(child);
+  }
+
+  refresh() {
+    this.surface.restyle();
   }
 }
 

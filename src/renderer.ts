@@ -13,7 +13,7 @@ export interface DrawJob {
   boxes: Float32Array;
   radii: Float32Array;
   count: number;
-  merge: number;
+  joins: Float32Array;
   peak: number;
   appear: number;
   touch: readonly [number, number, number];
@@ -25,7 +25,7 @@ export interface DrawJob {
   material: Material;
 }
 
-const uniformNames = ["uBoxes", "uRadii", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uMerge", "uPeak", "uAppear", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
+const uniformNames = ["uBoxes", "uRadii", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uJoin", "uPeak", "uAppear", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
 const maxTextures = 8;
 const maxTextureSide = 4096;
 
@@ -233,7 +233,7 @@ export class Renderer {
     gl.uniform4fv(u.uBoxes, job.boxes);
     gl.uniform1fv(u.uRadii, job.radii);
     gl.uniform1i(u.uCount, job.count);
-    gl.uniform1f(u.uMerge, Math.max(job.merge, 0.001));
+    gl.uniform1fv(u.uJoin, job.joins);
     gl.uniform1f(u.uPeak, job.peak);
     gl.uniform1f(u.uAppear, job.appear);
     gl.uniform3f(u.uTouch, job.touch[0], job.touch[1], job.touch[2]);

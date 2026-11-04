@@ -1,16 +1,35 @@
-export interface Interaction {
+export interface Motion {
   follow: number;
   press: number;
-  stretch: number;
+  jelly: number;
+  glow: number;
+  morph: number;
+  merge: number;
 }
 
-export const interactions = {
-  none: { follow: 0, press: 0, stretch: 0 },
-  calm: { follow: 0.5, press: 0.4, stretch: 0.4 },
-  lively: { follow: 1, press: 1, stretch: 1 },
-} as const satisfies Record<string, Interaction>;
+export const motionRanges: Record<keyof Motion, readonly [number, number]> = {
+  follow: [0, 1],
+  press: [0, 1],
+  jelly: [0, 1],
+  glow: [0, 1],
+  morph: [0, 1],
+  merge: [0, 64],
+};
 
-export type InteractionName = keyof typeof interactions;
+export const motionKeys = Object.keys(motionRanges) as (keyof Motion)[];
+export const motionDefaults: Motion = { follow: 0.5, press: 0.5, jelly: 0.6, glow: 0.5, morph: 0.6, merge: 0 };
+export const still: Motion = { follow: 0, press: 0, jelly: 0, glow: 0, morph: 0, merge: 0 };
+
+export function resolveMotion(...layers: (Partial<Motion> | undefined)[]): Motion {
+  const result = { ...motionDefaults };
+  for (const layer of layers) {
+    for (const key of motionKeys) {
+      const value = layer?.[key];
+      if (typeof value === "number" && Number.isFinite(value)) result[key] = Math.min(motionRanges[key][1], Math.max(motionRanges[key][0], value));
+    }
+  }
+  return result;
+}
 
 export class Spring {
   value: number;
@@ -25,6 +44,11 @@ export class Spring {
     this.velocity += ((this.target - this.value) * this.stiffness - this.velocity * this.damping) * dt;
     this.value += this.velocity * dt;
     if (this.settled) this.snap(this.target);
+  }
+
+  tune(stiffness: number) {
+    this.stiffness = stiffness;
+    this.damping = Math.sqrt(stiffness) * 1.1;
   }
 
   snap(value: number) {
@@ -45,7 +69,7 @@ export class Spring {
 const liquid = () => new Spring(0, 190, 15);
 const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
 
-export interface ShapeBox { x: number; y: number; halfW: number; halfH: number; radius: number }
+export interface ShapeBox { x: number; y: number; halfW: number; halfH: number; radius: number; join: number }
 
 export class Shape {
   x = liquid();
@@ -60,6 +84,7 @@ export class Shape {
   touchY = 0;
   radius = 0;
   placed = false;
+  motion: Motion = motionDefaults;
   private springs = [this.x, this.y, this.w, this.h, this.pointerX, this.pointerY, this.held, this.glow];
   private cleanup: (() => void) | null = null;
 
@@ -123,7 +148,8 @@ export class Shape {
     this.element.style.removeProperty("--glass-scale");
   }
 
-  read(rect: DOMRect, scrolled: boolean, animate: boolean, grow: boolean) {
+  read(rect: DOMRect, scrolled: boolean, grow: boolean) {
+    const animate = this.motion.morph > 0;
     const { x, y, w, h } = this;
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
@@ -151,18 +177,21 @@ export class Shape {
   }
 
   step(dt: number) {
+    const stiffness = 420 - 300 * this.motion.morph;
+    for (const spring of [this.x, this.y, this.w, this.h]) spring.tune(stiffness);
     for (const spring of this.springs) spring.step(dt);
   }
 
-  box(interaction: Interaction, scale: number): ShapeBox {
-    const swell = 1 + this.held.value * interaction.press * 0.06;
-    const pull = this.held.value * interaction.stretch * 0.06 * (Math.abs(this.pointerX.value) - Math.abs(this.pointerY.value));
-    const speedX = clamp(this.x.velocity / 2400, 0.22) * interaction.stretch;
-    const speedY = clamp(this.y.velocity / 2400, 0.22) * interaction.stretch;
+  box(scale: number): ShapeBox {
+    const { press, jelly, merge } = this.motion;
+    const swell = 1 + this.held.value * press * 0.12;
+    const pull = this.held.value * jelly * 0.1 * (Math.abs(this.pointerX.value) - Math.abs(this.pointerY.value));
+    const speedX = clamp(this.x.velocity / 2400, 0.22) * jelly * 1.6;
+    const speedY = clamp(this.y.velocity / 2400, 0.22) * jelly * 1.6;
     const squash = Math.abs(speedX) - Math.abs(speedY);
     const halfW = Math.max(this.w.value, 0) / 2 * swell * (1 + pull + squash) * scale;
     const halfH = Math.max(this.h.value, 0) / 2 * swell * (1 - pull - squash) * scale;
     this.element.style.setProperty("--glass-scale", swell.toFixed(4));
-    return { x: this.x.value, y: this.y.value, halfW, halfH, radius: Math.min(this.radius, halfW, halfH) };
+    return { x: this.x.value, y: this.y.value, halfW, halfH, radius: Math.min(this.radius, halfW, halfH), join: merge };
   }
 }

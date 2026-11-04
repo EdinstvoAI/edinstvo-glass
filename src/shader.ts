@@ -12,11 +12,11 @@ const float SOFTNESS = 2.7;
 
 uniform sampler2D uBackdrop, uFrosted;
 uniform vec4 uBoxes[MAX_SHAPES];
-uniform float uRadii[MAX_SHAPES];
+uniform float uRadii[MAX_SHAPES], uJoin[MAX_SHAPES];
 uniform int uCount;
 uniform vec2 uCanvas, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint, uTouch;
-uniform float uViewY, uPad, uDpr, uMerge, uPeak, uAppear, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift;
+uniform float uViewY, uPad, uDpr, uPeak, uAppear, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift;
 out vec4 outColor;
 
 float roundedBox(vec2 p, vec2 b, float r) {
@@ -36,7 +36,8 @@ float blend(float a, float b, float k) {
 
 // ── x is the distance to the merged outline, y how deep the point sits inside it, without creases
 vec2 field(vec2 p) {
-  float d = 1e5;
+  float joined = 1e5;
+  float apart = 1e5;
   float inset = -1e5;
   for (int i = 0; i < MAX_SHAPES; i++) {
     if (i >= uCount) break;
@@ -44,12 +45,14 @@ vec2 field(vec2 p) {
     vec2 b = uBoxes[i].zw;
     float r = uRadii[i];
     float own = roundedBox(c, b, r);
-    d = blend(d, own, uMerge);
+    if (uJoin[i] > 0.0) joined = blend(joined, own, uJoin[i]);
+    else apart = min(apart, own);
     if (own < 0.0) {
       vec2 edges = max(b - abs(c), 0.0) + r + 0.001;
       inset = max(inset, softMin(edges.x, edges.y) - r);
     }
   }
+  float d = min(joined, apart);
   return vec2(d, max(inset, -d));
 }
 
