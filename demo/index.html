@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@edinstvo/glass bench</title>
+<link rel="stylesheet" href="/css/glass.css">
+<style>
+  html, body { margin: 0; height: 100%; font: 14px/1.4 -apple-system, "Segoe UI", sans-serif; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; }
+  main { position: relative; min-height: 100%; display: grid; place-content: center; gap: 24px; justify-items: center; }
+  .pill { border-radius: 999px; padding: 16px 40px; color: #fff; font-weight: 600; }
+  .card { width: 360px; height: 200px; }
+  #controls { position: fixed; top: 16px; right: 16px; display: grid; grid-template-columns: auto 140px 36px; gap: 4px 8px; padding: 12px; background: #000c; color: #fff; border-radius: 8px; font-size: 12px; align-items: center; }
+  #controls select { grid-column: 1 / -1; }
+</style>
+<canvas id="scene"></canvas>
+<main>
+  <edinstvo-glass id="card" class="card" material="regular" interaction="lively"></edinstvo-glass>
+  <edinstvo-glass class="pill" material="clear" interaction="calm">Glass</edinstvo-glass>
+</main>
+<div id="controls"></div>
+<script type="module">
+  import "/dist/define.js";
+  import { presets, ranges } from "/dist/index.js";
+
+  const scene = document.querySelector("#scene");
+  const paint = () => {
+    scene.width = innerWidth * 2;
+    scene.height = innerHeight * 2;
+    const c = scene.getContext("2d");
+    const sky = c.createLinearGradient(0, 0, scene.width, scene.height);
+    sky.addColorStop(0, "#E54D33");
+    sky.addColorStop(0.5, "#f2b134");
+    sky.addColorStop(1, "#1d4ed8");
+    c.fillStyle = sky;
+    c.fillRect(0, 0, scene.width, scene.height);
+    c.strokeStyle = "#fff";
+    c.lineWidth = 6;
+    for (let x = 0; x < scene.width; x += 320) {
+      c.beginPath();
+      c.moveTo(x, 0);
+      c.lineTo(x, scene.height);
+      c.stroke();
+    }
+    c.fillStyle = "#111";
+    c.font = "bold 220px sans-serif";
+    c.textAlign = "center";
+    c.fillText("Единство", scene.width / 2, scene.height / 2);
+  };
+  paint();
+  addEventListener("resize", paint);
+
+  const card = document.querySelector("#card");
+  const controls = document.querySelector("#controls");
+  const select = document.createElement("select");
+  select.append(...Object.keys(presets).map((name) => new Option(name, name, name === "regular", name === "regular")));
+  controls.append(select);
+  const inputs = {};
+  for (const [key, [min, max]] of Object.entries(ranges)) {
+    const label = document.createElement("label");
+    label.textContent = key;
+    const input = Object.assign(document.createElement("input"), { type: "range", min, max, step: (max - min) / 100 });
+    const value = document.createElement("output");
+    input.addEventListener("input", () => {
+      value.textContent = (+input.value).toFixed(2);
+      card.setAttribute(key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`), input.value);
+    });
+    controls.append(label, input, value);
+    inputs[key] = { input, value };
+  }
+  const load = () => {
+    for (const key of Object.keys(ranges)) card.removeAttribute(key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`));
+    card.setAttribute("material", select.value);
+    for (const [key, { input, value }] of Object.entries(inputs)) {
+      input.value = presets[select.value][key];
+      value.textContent = (+input.value).toFixed(2);
+    }
+  };
+  select.addEventListener("change", load);
+  load();
+</script>
+</html>
