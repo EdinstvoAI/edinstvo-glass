@@ -78,9 +78,10 @@ Set a preset with `material`, then override anything with an attribute, a `--gla
 | `depth` | 0 to 96 px | Width of the curved edge |
 | `splay` | 0 to 1 | Spreads the curve from the edge towards the centre |
 | `dispersion` | 0 to 1 | How far colours split wherever the glass bends |
-| `frost` | 0 to 1 | Matte surface, up to 24 px of blur |
+| `frost` | 0 to 1 | Matte surface, a true gaussian up to 20 px |
 | `transparency` | 0 to 1 | How much of the backdrop survives the tint |
 | `tint` | any CSS colour | Glass colour. `auto` follows the theme |
+| `lift` | 0 to 1 | Brightens everything behind the glass |
 | `light` | 0 to 1 | Shading across the curve, bright towards the light and dark away from it |
 | `rim` | 0 to 1 | Thin light line along the edge, brightest in line with the light |
 | `glint` | 0 to 1 | Sharp highlight along the edge. Off in every preset |
@@ -89,7 +90,9 @@ Set a preset with `material`, then override anything with an attribute, a `--gla
 
 ### Presets
 
-`clear` · `regular` · `frost` · `lens` · `prism`
+`pure` · `clear` · `regular` · `frost` · `lens` · `prism`
+
+`regular` and `clear` are tuned against the system glass on macOS, pixel by pixel. `pure` is the same lens with no frost at all.
 
 ### Interaction
 

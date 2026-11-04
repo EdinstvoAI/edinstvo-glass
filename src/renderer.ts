@@ -18,7 +18,7 @@ export interface DrawJob {
   material: Material;
 }
 
-const uniformNames = ["uCanvas", "uSize", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uViewY", "uPad", "uRadius", "uDpr", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim"] as const;
+const uniformNames = ["uCanvas", "uSize", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uViewY", "uPad", "uRadius", "uDpr", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
 const maxTextures = 8;
 const maxTextureSide = 4096;
 
@@ -211,7 +211,7 @@ export class Renderer {
     const texture = this.bind(job.backdrop);
     if (m.frost > 0) {
       const texels = Math.max(job.uvPerPixel[0] * texture.width, job.uvPerPixel[1] * texture.height);
-      const frosted = this.blurred(texture, m.frost * 14 * job.dpr * texels);
+      const frosted = this.blurred(texture, m.frost * 20 * job.dpr * texels);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, frosted);
       gl.activeTexture(gl.TEXTURE0);
@@ -243,6 +243,7 @@ export class Renderer {
     gl.uniform1f(u.uBloom, m.bloom);
     gl.uniform1f(u.uGlint, m.glint);
     gl.uniform1f(u.uRim, m.rim);
+    gl.uniform1f(u.uLift, m.lift);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // ── the drawing buffer is only valid until this task ends, so copy out right here
     job.target.clearRect(0, 0, width, height);

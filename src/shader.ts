@@ -10,7 +10,7 @@ precision highp float;
 uniform sampler2D uBackdrop, uFrosted;
 uniform vec2 uCanvas, uSize, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint;
-uniform float uViewY, uPad, uRadius, uDpr, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim;
+uniform float uViewY, uPad, uRadius, uDpr, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift;
 out vec4 outColor;
 
 const float SOFTNESS = 2.7;
@@ -69,6 +69,7 @@ void main() {
 
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 1.08);
   col = mix(uTint, col, uTransparency);
+  col = col * (1.0 + uLift) + uLift * 0.12;
   col += halo * uBloom * 0.22 * s;
 
   float facing = dot(n.xy, uLightDir);
