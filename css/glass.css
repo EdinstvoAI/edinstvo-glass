@@ -1,0 +1,33 @@
+:root {
+  --glass-radius: 24px;
+  --glass-shadow: 0 8px 32px rgb(0 0 0 / .14);
+  --glass-fallback: rgb(249 249 249 / .22);
+  --glass-edge: rgb(255 255 255 / .5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --glass-shadow: 0 8px 32px rgb(0 0 0 / .4);
+    --glass-fallback: rgb(28 28 30 / .55);
+    --glass-edge: rgb(255 255 255 / .22);
+  }
+}
+
+:root[data-theme="dark"] {
+  --glass-shadow: 0 8px 32px rgb(0 0 0 / .4);
+  --glass-fallback: rgb(28 28 30 / .55);
+  --glass-edge: rgb(255 255 255 / .22);
+}
+
+.glass,
+.glass-clear,
+.glass-frost {
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow), inset 0 0 0 .5px var(--glass-edge);
+  background: var(--glass-fallback);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.6);
+  backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.6);
+}
+
+.glass-clear { --glass-blur: 2px; background: transparent; }
+.glass-frost { --glass-blur: 28px; }
