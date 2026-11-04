@@ -2,7 +2,7 @@ import type { Backdrop, GlassImage } from "./backdrop.js";
 import type { Material } from "./material.js";
 import { blurFragment, fragment, vertex } from "./shader.js";
 
-export const maxShapes = 8;
+export const maxShapes = 64;
 
 export interface DrawJob {
   target: CanvasRenderingContext2D;
@@ -11,9 +11,8 @@ export interface DrawJob {
   height: number;
   pad: number;
   boxes: Float32Array;
-  radii: Float32Array;
+  forms: Float32Array;
   count: number;
-  joins: Float32Array;
   peak: number;
   appear: number;
   touch: readonly [number, number, number];
@@ -25,7 +24,7 @@ export interface DrawJob {
   material: Material;
 }
 
-const uniformNames = ["uBoxes", "uRadii", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uJoin", "uPeak", "uAppear", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
+const uniformNames = ["uBoxes", "uForms", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uPeak", "uAppear", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
 const maxTextures = 8;
 const maxTextureSide = 4096;
 
@@ -231,9 +230,8 @@ export class Renderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.uniform2f(u.uCanvas, width, height);
     gl.uniform4fv(u.uBoxes, job.boxes);
-    gl.uniform1fv(u.uRadii, job.radii);
+    gl.uniform2fv(u.uForms, job.forms);
     gl.uniform1i(u.uCount, job.count);
-    gl.uniform1fv(u.uJoin, job.joins);
     gl.uniform1f(u.uPeak, job.peak);
     gl.uniform1f(u.uAppear, job.appear);
     gl.uniform3f(u.uTouch, job.touch[0], job.touch[1], job.touch[2]);

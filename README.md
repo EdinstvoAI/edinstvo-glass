@@ -114,11 +114,20 @@ Merging is opt-in, per element. Give `merge` to the pieces that should become on
 </edinstvo-glass-group>
 ```
 
-Up to 8 shapes per group, all drawn in one pass. `merge` on the group sets it for every child, `merge="0"` on a child opts out.
+Up to 64 merged shapes per group, all drawn in one pass. Pieces without `merge` are bodies of their own and slide over the rest. `merge` on the group sets it for every child, `merge="0"` on a child opts out.
 
 ### Appear
 
 Add `appear` to materialise on load, or call `show()` and `hide()`. Both return a promise.
+
+## Layers
+
+Glass sees the glass under it. `layer` picks who is on top, higher wins. It is `z-index` with a shorter name, so plain `z-index` works too. On a tie the later element in the document is on top.
+
+```html
+<edinstvo-glass layer="1"></edinstvo-glass>
+<edinstvo-glass layer="2"></edinstvo-glass>
+```
 
 ## Backdrop
 
@@ -144,7 +153,6 @@ on top of `backdrop-filter`. The element falls back to the same look by itself w
 
 ## Limits
 
-- Glass sees other glass under it. Later in the document means on top, `z-index` is not read yet.
 - Text and regular DOM behind the glass aren't refracted, only the sources listed above. Draw them to a canvas if you need them.
 - CSS gradients aren't read yet. Glass skips them and looks further down the stack.
 - Cross-origin images need CORS headers, otherwise that element falls back to CSS.

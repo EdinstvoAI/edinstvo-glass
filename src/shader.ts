@@ -7,12 +7,12 @@ void main() {
 export const fragment = `#version 300 es
 precision highp float;
 
-const int MAX_SHAPES = 8;
+const int MAX_SHAPES = 64;
 const float SOFTNESS = 2.7;
 
 uniform sampler2D uBackdrop, uFrosted;
 uniform vec4 uBoxes[MAX_SHAPES];
-uniform float uRadii[MAX_SHAPES], uJoin[MAX_SHAPES];
+uniform vec2 uForms[MAX_SHAPES];
 uniform int uCount;
 uniform vec2 uCanvas, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint, uTouch;
@@ -43,9 +43,9 @@ vec2 field(vec2 p) {
     if (i >= uCount) break;
     vec2 c = p - uBoxes[i].xy;
     vec2 b = uBoxes[i].zw;
-    float r = uRadii[i];
+    float r = uForms[i].x;
     float own = roundedBox(c, b, r);
-    if (uJoin[i] > 0.0) joined = blend(joined, own, uJoin[i]);
+    if (uForms[i].y > 0.0) joined = blend(joined, own, uForms[i].y);
     else apart = min(apart, own);
     if (own < 0.0) {
       vec2 edges = max(b - abs(c), 0.0) + r + 0.001;

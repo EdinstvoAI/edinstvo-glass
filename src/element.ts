@@ -1,7 +1,7 @@
 import type { GlassSource } from "./backdrop.js";
 import { motionKeys } from "./interaction.js";
 import { type Material, kebab, numericKeys } from "./material.js";
-import { GlassSurface, placeCanvas } from "./surface.js";
+import { GlassSurface, placeCanvas, readMotion } from "./surface.js";
 
 const Base = (globalThis.HTMLElement ?? class {}) as typeof HTMLElement;
 
@@ -48,10 +48,13 @@ const css = `
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["source", "live", "tint", "appear", ...motionKeys, ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
 
   protected surface: GlassSurface;
   private group: EdinstvoGlassGroup | null = null;
+  private parentGroup: EdinstvoGlassGroup | null = null;
+  private standing = false;
+  private ready = false;
   private sourceValue: GlassSource | undefined;
   private materialValue: Partial<Material> | undefined;
 
@@ -76,24 +79,42 @@ export class EdinstvoGlass extends Base {
   }
 
   connectedCallback() {
-    this.group = this.parentElement?.closest<EdinstvoGlassGroup>("[data-glass-group]") ?? null;
-    if (this.group) {
-      this.dataset.grouped = "";
-      this.group.adopt(this);
-      return;
-    }
-    this.sync();
-    this.surface.connect();
+    this.parentGroup = this.parentElement?.closest<EdinstvoGlassGroup>("[data-glass-group]") ?? null;
+    this.ready = true;
+    this.place();
   }
 
   disconnectedCallback() {
-    if (this.group) {
-      this.group.release(this);
-      this.group = null;
-      delete this.dataset.grouped;
+    this.ready = false;
+    if (this.group) this.leave();
+    if (this.standing) this.surface.disconnect();
+    this.standing = false;
+  }
+
+  private leave() {
+    this.group?.release(this);
+    this.group = null;
+    delete this.dataset.grouped;
+  }
+
+  place() {
+    const parent = this.parentGroup;
+    const reach = parent ? parseFloat(this.getAttribute("merge") ?? parent.getAttribute("merge") ?? "0") : 0;
+    if (parent && reach > 0) {
+      if (this.standing) this.surface.disconnect();
+      this.standing = false;
+      if (!this.group) {
+        this.dataset.grouped = "";
+        parent.adopt(this);
+        this.group = parent;
+      }
+      parent.refresh();
       return;
     }
-    this.surface.disconnect();
+    if (this.group) this.leave();
+    this.sync();
+    if (!this.standing) this.surface.connect();
+    this.standing = true;
   }
 
   show() {
@@ -105,8 +126,7 @@ export class EdinstvoGlass extends Base {
   }
 
   attributeChangedCallback() {
-    if (this.group) this.group.refresh();
-    else if (this.isConnected) this.sync();
+    if (this.ready) this.place();
   }
 
   get source() {
@@ -133,15 +153,18 @@ export class EdinstvoGlass extends Base {
 
   protected sync() {
     const live = this.getAttribute("live");
+    const layer = this.getAttribute("layer");
+    if (layer !== null) this.style.zIndex = layer;
     this.surface.set({
       material: this.composeMaterial(),
+      motion: this.parentGroup ? readMotion(this.parentGroup) : undefined,
       source: this.source,
       live: live === null ? undefined : live !== "false",
       appear: this.hasAttribute("appear"),
     });
   }
 
-  private composeMaterial(): Partial<Material> {
+  composeMaterial(): Partial<Material> {
     const overrides: Partial<Material> = {};
     for (const [attribute, key] of materialAttributes) {
       const value = this.getAttribute(attribute);
@@ -149,7 +172,7 @@ export class EdinstvoGlass extends Base {
     }
     const tint = this.getAttribute("tint");
     if (tint) overrides.tint = tint;
-    return { ...this.material, ...overrides };
+    return { ...this.parentGroup?.composeMaterial(), ...this.material, ...overrides };
   }
 }
 
@@ -161,6 +184,13 @@ export class EdinstvoGlassGroup extends EdinstvoGlass {
   connectedCallback() {
     this.dataset.glassGroup = "";
     super.connectedCallback();
+  }
+
+  place() {
+    super.place();
+    for (const child of this.querySelectorAll<EdinstvoGlass>("[data-engine]")) {
+      if (child instanceof EdinstvoGlass) child.place();
+    }
   }
 
   adopt(child: EdinstvoGlass) {

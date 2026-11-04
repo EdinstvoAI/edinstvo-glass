@@ -33,7 +33,7 @@ function tick(now: number) {
   if (again) wake();
 }
 
-function readMotion(element: HTMLElement) {
+export function readMotion(element: HTMLElement) {
   const style = getComputedStyle(element);
   const motion: Partial<Motion> = {};
   for (const key of motionKeys) {
@@ -87,8 +87,8 @@ export class GlassSurface {
   private appear = new Spring(1, 120, 15);
   private settle: (() => void) | null = null;
   private boxes = new Float32Array(maxShapes * 4);
-  private radii = new Float32Array(maxShapes);
-  private joins = new Float32Array(maxShapes);
+  private forms = new Float32Array(maxShapes * 2);
+  private layer = 0;
 
   constructor(private host: HTMLElement, private canvas: HTMLCanvasElement, private options: GlassOptions = {}, private group = false) {
     this.context = canvas.getContext("2d")!;
@@ -179,6 +179,7 @@ export class GlassSurface {
     const tint = style.getPropertyValue("--glass-tint").trim();
     if (tint) tokens.tint = tint;
     this.material = resolveMaterial(tokens, this.options.material);
+    this.layer = parseInt(style.zIndex) || 0;
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.tint = resolveTint(this.material.tint);
     const base = resolveMotion(this.options.motion, readMotion(this.host));
@@ -257,8 +258,8 @@ export class GlassSurface {
   }
 
   private above(other: GlassSurface) {
-    const position = other.host.compareDocumentPosition(this.host);
-    return Boolean(position & Node.DOCUMENT_POSITION_FOLLOWING) && !(position & Node.DOCUMENT_POSITION_CONTAINED_BY);
+    if (this.layer !== other.layer) return this.layer > other.layer;
+    return Boolean(other.host.compareDocumentPosition(this.host) & Node.DOCUMENT_POSITION_FOLLOWING);
   }
 
   private layered(backdrop: Backdrop, frame: Frame, dpr: number): Backdrop {
@@ -304,8 +305,7 @@ export class GlassSurface {
     let peak = Infinity;
     list.forEach((box, index) => {
       this.boxes.set([(box.x - left) * dpr, (box.y - top) * dpr, box.halfW * dpr, box.halfH * dpr], index * 4);
-      this.radii[index] = box.radius * dpr;
-      this.joins[index] = box.join * dpr;
+      this.forms.set([box.radius * dpr, box.join * dpr], index * 2);
       peak = Math.min(peak, softPeak(box.halfW, box.halfH, box.radius) * dpr);
     });
 
@@ -325,9 +325,8 @@ export class GlassSurface {
       height: canvasH,
       pad: pad * dpr,
       boxes: this.boxes,
-      radii: this.radii,
+      forms: this.forms,
       count: list.length,
-      joins: this.joins,
       peak: Math.max(peak, 1),
       appear: Math.max(this.appear.value, 0),
       touch: [((shape?.touchX ?? 0) - left) * dpr, ((shape?.touchY ?? 0) - top) * dpr, strength],
