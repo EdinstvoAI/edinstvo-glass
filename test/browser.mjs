@@ -24,8 +24,9 @@ const server = createServer((request, response) => {
     request.on("data", (part) => (body += part));
     request.on("end", () => {
       response.end();
-      const { agent, checks, error } = JSON.parse(body);
-      console.log(agent);
+      const { agent, webgl, notes, checks, error } = JSON.parse(body);
+      console.log(agent, webgl ? "with WebGL 2" : "without WebGL 2");
+      for (const note of notes) console.log(`note: ${note}`);
       for (const [name, passed] of Object.entries(checks)) console.log(`${passed ? "ok  " : "FAIL"} ${name}`);
       if (error) console.log(`error: ${error}`);
       finish(!error && Object.keys(checks).length >= 5 && Object.values(checks).every(Boolean) ? 0 : 1);

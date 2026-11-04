@@ -13,6 +13,10 @@
 <div id="page" class="box">Text<edinstvo-glass source="#page" style="width:80px;height:80px"></edinstvo-glass></div>
 <script type="module">
   const checks = {};
+  const notes = [];
+  const warn = console.warn;
+  console.warn = (...args) => { notes.push(args.join(" ")); warn(...args); };
+  const webgl = Boolean(document.createElement("canvas").getContext("webgl2"));
   const wait = (ms) => new Promise((done) => setTimeout(done, ms));
   const check = (name, passed) => { checks[name] = Boolean(passed); };
   const pixels = (canvas) => canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
@@ -38,7 +42,7 @@
 
     await import("/dist/define.js");
     await wait(1200);
-    check("glass stays on webgl", document.querySelector("#page edinstvo-glass").dataset.engine === "webgl");
+    check("glass stays on webgl", !webgl || document.querySelector("#page edinstvo-glass").dataset.engine === "webgl");
   } catch (reason) { error = String(reason); }
   try {
     const decode = HTMLImageElement.prototype.decode;
@@ -54,6 +58,6 @@
     HTMLImageElement.prototype.decode = decode;
     check("falls back to css when refused", glass.dataset.engine === "css");
   } catch (reason) { error ??= String(reason); }
-  window.result = { agent: navigator.userAgent, checks, error };
+  window.result = { agent: navigator.userAgent, webgl, notes, checks, error };
   await fetch("/result", { method: "POST", body: JSON.stringify(window.result) });
 </script>
