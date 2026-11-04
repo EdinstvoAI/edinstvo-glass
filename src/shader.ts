@@ -31,12 +31,15 @@ vec2 toUv(vec2 px) {
 
 vec3 frosted(vec2 px, float radius, float lod) {
   vec3 sum = vec3(0.0);
-  for (int i = 0; i < 8; i++) {
-    float f = float(i) + 0.5;
-    float angle = f * 2.3999632;
-    sum += textureLod(uBackdrop, toUv(px + vec2(cos(angle), sin(angle)) * radius * sqrt(f / 8.0)), lod).rgb;
+  float total = 0.0;
+  for (int i = 0; i < 16; i++) {
+    float f = (float(i) + 0.5) / 16.0;
+    float angle = float(i) * 2.3999632;
+    float weight = exp(-2.5 * f);
+    sum += textureLod(uBackdrop, toUv(px + vec2(cos(angle), sin(angle)) * radius * sqrt(f)), lod).rgb * weight;
+    total += weight;
   }
-  return sum * 0.125;
+  return sum / total;
 }
 
 void main() {
@@ -69,7 +72,7 @@ void main() {
   float frostPx = uFrost * 24.0 * uDpr;
   float lod = max(log2(max(frostPx * texels * 0.8, 1.0)), squeeze);
   float k = uDispersion * 0.18;
-  vec3 col = frosted(at, frostPx, lod);
+  vec3 col = frosted(at, frostPx * 1.6, lod);
   vec3 middle = textureLod(uBackdrop, toUv(at), lod).rgb;
   col.r += textureLod(uBackdrop, toUv(at - shift * k), lod).r - middle.r;
   col.b += textureLod(uBackdrop, toUv(at + shift * k), lod).b - middle.b;
