@@ -1,6 +1,6 @@
 {
   "name": "@edinstvo/glass",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Liquid glass for the web: one WebGL material that looks the same on macOS and Windows.",
   "license": "MIT",
   "type": "module",
