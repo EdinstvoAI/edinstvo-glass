@@ -88,14 +88,14 @@ void main() {
   vec2 shift = ray.xy / max(-ray.z, 0.5) * band * (0.35 + height) * uRefraction * 1.2 * uAppear;
 
   if (uFlow > 0.0) {
-    float reachOut = 14.0 * uDpr;
-    float blurred = haloLod * 0.6;
-    vec3 weights = vec3(0.2126, 0.7152, 0.0722);
+    float reachOut = 32.0 * uDpr;
+    float blurred = haloLod;
     vec2 lean = vec2(
-      dot(textureLod(uBackdrop, toUv(px + vec2(reachOut, 0.0)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(reachOut, 0.0)), blurred).rgb, weights),
-      dot(textureLod(uBackdrop, toUv(px + vec2(0.0, reachOut)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(0.0, reachOut)), blurred).rgb, weights)
+      dot(vec3(0.6, 0.15, 0.25), textureLod(uBackdrop, toUv(px + vec2(reachOut, 0.0)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(reachOut, 0.0)), blurred).rgb),
+      dot(vec3(0.6, 0.15, 0.25), textureLod(uBackdrop, toUv(px + vec2(0.0, reachOut)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(0.0, reachOut)), blurred).rgb)
     );
-    shift += lean * band * (0.35 + height) * uFlow * 1.1 * uAppear;
+    lean /= 1.0 + length(lean) * 1.5;
+    shift += lean * max(band, 24.0 * uDpr) * (0.35 + height) * uFlow * 1.6 * uAppear;
   }
 
   vec2 fromTouch = px - uTouch.xy;
