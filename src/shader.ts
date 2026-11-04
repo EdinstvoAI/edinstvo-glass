@@ -34,14 +34,13 @@ vec2 toUv(vec2 px) {
 }
 
 vec3 frosted(vec2 px, float radius, float lod, float spin) {
-  vec2 a = vec2(cos(spin), sin(spin)) * radius;
-  vec2 b = vec2(-a.y, a.x);
-  return (
-    textureLod(uBackdrop, toUv(px + a), lod).rgb +
-    textureLod(uBackdrop, toUv(px - a), lod).rgb +
-    textureLod(uBackdrop, toUv(px + b), lod).rgb +
-    textureLod(uBackdrop, toUv(px - b), lod).rgb
-  ) * 0.25;
+  vec3 sum = vec3(0.0);
+  for (int i = 0; i < 8; i++) {
+    float f = float(i) + 0.5;
+    float angle = spin + f * 2.3999632;
+    sum += textureLod(uBackdrop, toUv(px + vec2(cos(angle), sin(angle)) * radius * sqrt(f / 8.0)), lod).rgb;
+  }
+  return sum * 0.125;
 }
 
 void main() {
@@ -56,11 +55,6 @@ void main() {
   float mask = 1.0 - smoothstep(-0.75, 0.75, d);
   float spill = exp(-max(d, 0.0) / (uPad * 0.3)) * uBloom * 0.4 * uLight;
   vec3 spillColor = mix(halo, vec3(1.0), 0.6);
-  if (mask <= 0.0) {
-    outColor = vec4(spillColor * spill, spill);
-    return;
-  }
-
   // ── a p-norm of the edge distances: smooth everywhere inside, and p = 2.7 lands on the rounded corner
   vec2 edges = max(half_ - abs(c), 0.0) + uRadius + 0.001;
   float soft = softMin(edges.x, edges.y);
@@ -69,29 +63,29 @@ void main() {
   float s = 1.0 - clamp((soft - uRadius) / band, 0.0, 1.0);
   float height = sqrt(max(1.0 - s * s, 0.0));
   vec2 g = normalize(pow(vec2(soft) / edges, vec2(SOFTNESS + 1.0)) * sign(c) + 0.00001);
-  vec3 n = normalize(vec3(g * s * s / max(height, 0.14), 1.0));
+  vec3 n = normalize(vec3(g * s * s / sqrt(1.02 - s * s), 1.0));
 
   vec3 ray = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.5);
   vec2 shift = ray.xy / max(-ray.z, 0.5) * band * (0.35 + height) * uRefraction * 1.2;
 
+  vec2 at = px + shift;
+  float squeeze = log2(max(max(length(dFdx(at)), length(dFdy(at))) * texels, 1.0));
   float frostPx = uFrost * 24.0 * uDpr;
-  float lod = log2(max(frostPx * texels, 1.0));
-  float radius = frostPx * 0.6;
+  float lod = max(log2(max(frostPx * texels * 0.5, 1.0)), squeeze);
   float spin = noise(gl_FragCoord.xy) * 6.2831853;
   float k = uDispersion * 0.18;
-  vec3 col = vec3(
-    frosted(px + shift * (1.0 - k), radius, lod, spin).r,
-    frosted(px + shift, radius, lod, spin).g,
-    frosted(px + shift * (1.0 + k), radius, lod, spin).b
-  );
+  vec3 col = frosted(at, frostPx, lod, spin);
+  vec3 middle = textureLod(uBackdrop, toUv(at), lod).rgb;
+  col.r += textureLod(uBackdrop, toUv(at - shift * k), lod).r - middle.r;
+  col.b += textureLod(uBackdrop, toUv(at + shift * k), lod).b - middle.b;
 
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 1.08);
   col = mix(uTint, col, uTransparency);
-  col += halo * uBloom * 0.22 * (0.35 + s);
+  col += halo * uBloom * 0.22 * s;
 
   float facing = dot(n.xy, uLightDir);
-  col += uLight * (max(facing, 0.0) * 0.5 + dot(c / half_, uLightDir) * 0.05);
-  col *= 1.0 - uLight * max(-facing, 0.0) * 0.35;
+  col += uLight * (max(facing, 0.0) * 0.3 + dot(c / half_, uLightDir) * 0.03);
+  col *= 1.0 - uLight * max(-facing, 0.0) * 0.2;
 
   float toward = dot(g, uLightDir);
   col += uGlint * pow(s, 5.0) * (pow(max(toward, 0.0), 6.0) + pow(max(-toward, 0.0), 6.0) * 0.4);
