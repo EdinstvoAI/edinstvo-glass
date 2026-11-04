@@ -6,7 +6,7 @@ At its core is a WebGL lens that bends light through a curved edge, splits colou
 
 ## Documentation
 
-See the full documentation, with a playground and examples, at [edinstvoai.github.io/edinstvo-glass-documentation-](https://edinstvoai.github.io/edinstvo-glass-documentation-/).
+See the full documentation, with a playground and examples, at [edinstvoai.github.io/edinstvo-glass-site/docs](https://edinstvoai.github.io/edinstvo-glass-site/docs/).
 
 ## npm
 
