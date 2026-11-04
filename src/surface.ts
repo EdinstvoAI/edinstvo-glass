@@ -217,7 +217,14 @@ export class GlassSurface {
 
     const list = this.layout();
     if (!list.length) return false;
-    const backdrop = resolveBackdrop(this.host, rect, this.options.source ?? "auto", () => this.invalidate());
+    let backdrop: Backdrop | null;
+    try {
+      backdrop = resolveBackdrop(this.host, rect, this.options.source ?? "auto", () => this.invalidate());
+    } catch (error) {
+      console.warn("@edinstvo/glass: can't read this backdrop, falling back to CSS.", error);
+      this.fallBack();
+      return false;
+    }
     if (!backdrop) return this.moving;
     this.live = this.options.live ?? (backdrop.live && backdrop.image instanceof HTMLVideoElement);
 

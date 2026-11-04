@@ -1,0 +1,23 @@
+name: Browsers
+
+on:
+  push:
+    branches: [Dev, main]
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, browser: firefox }
+          - { os: macos-latest, browser: safari }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run test:browser -- ${{ matrix.browser }}

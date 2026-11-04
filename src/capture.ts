@@ -3,6 +3,7 @@ const inlined = new Map<string, Promise<string>>();
 
 interface Shot {
   canvas: HTMLCanvasElement | null;
+  failed: boolean;
   waiting: Set<() => void>;
   watcher?: MutationObserver;
 }
@@ -88,7 +89,9 @@ async function render(element: Element, content: boolean) {
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(Math.round(width * scale), 1);
   canvas.height = Math.max(Math.round(height * scale), 1);
-  canvas.getContext("2d")!.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d", { willReadFrequently: true })!;
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  context.getImageData(0, 0, 1, 1);
   return canvas;
 }
 
@@ -96,15 +99,21 @@ function refresh(element: Element, shot: Shot, content: boolean) {
   render(element, content)
     .then((canvas) => {
       shot.canvas = canvas;
-      for (const notify of shot.waiting) notify();
+      shot.failed = false;
     })
-    .catch((error) => console.warn("@edinstvo/glass: can't capture this element.", error));
+    .catch((error) => {
+      console.warn("@edinstvo/glass: can't capture this element.", error);
+      shot.failed = true;
+    })
+    .finally(() => {
+      for (const notify of shot.waiting) notify();
+    });
 }
 
 export function captured(element: Element, content: boolean, onReady: () => void) {
   let shot = shots.get(element);
   if (!shot) {
-    const created: Shot = { canvas: null, waiting: new Set() };
+    const created: Shot = { canvas: null, failed: false, waiting: new Set() };
     shot = created;
     shots.set(element, created);
     let timer = 0;
@@ -120,5 +129,6 @@ export function captured(element: Element, content: boolean, onReady: () => void
     refresh(element, created, content);
   }
   shot.waiting.add(onReady);
+  if (shot.failed) throw new Error("This browser can't capture this element.");
   return shot.canvas;
 }
