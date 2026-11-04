@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cornerRadius, fitBox, lightVector, softPeak, uvTransform } from "../dist/geometry.js";
 import { Spring, motionDefaults, resolveMotion } from "../dist/interaction.js";
-import { defaults, numericKeys, ranges, resolveMaterial } from "../dist/material.js";
+import { defaults, numericKeys, ranges, readValue, resolveMaterial, sceneLayer, stackLayers } from "../dist/material.js";
 
 test("later layers win and values stay in range", () => {
   const material = resolveMaterial(defaults, { frost: 4, refraction: -1, depth: Number.NaN });
@@ -65,4 +65,32 @@ test("a spring overshoots, then settles on the target", () => {
   }
   assert.ok(top > 1);
   assert.equal(spring.value, 1);
+});
+
+test("one local light setting leaves the other global ones alone", () => {
+  const scene = sceneLayer({ direction: "top-left", intensity: "80%", color: "white", softness: 0.6 });
+  const own = resolveMaterial(stackLayers(scene, { light: "inherit", lightColor: "blue" }));
+  assert.equal(own.lightAngle, -45);
+  assert.equal(own.light, 0.8);
+  assert.equal(own.lightSoftness, 0.6);
+  assert.equal(own.lightColor, "blue");
+});
+
+test("default goes back to the engine value past the scene", () => {
+  const scene = sceneLayer({ intensity: 0.9, color: "red" });
+  const own = resolveMaterial(stackLayers(scene, { light: "default", lightColor: "default" }));
+  assert.equal(own.light, defaults.light);
+  assert.equal(own.lightColor, defaults.lightColor);
+  assert.equal(resolveMaterial().lightColor, "#fff");
+});
+
+test("light values read words and percents", () => {
+  assert.equal(readValue("lightAngle", "bottom-right"), 135);
+  assert.equal(readValue("light", "40%"), 0.4);
+  assert.equal(readValue("light", "inherit"), "inherit");
+});
+
+test("new effects stay off by default", () => {
+  assert.equal(defaults.reflection, 0);
+  assert.equal(defaults.dynamicRefraction, 0);
 });

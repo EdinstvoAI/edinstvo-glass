@@ -15,8 +15,8 @@ uniform vec4 uBoxes[MAX_SHAPES];
 uniform vec2 uForms[MAX_SHAPES];
 uniform int uCount;
 uniform vec2 uCanvas, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
-uniform vec3 uTint, uTouch;
-uniform float uViewY, uPad, uDpr, uPeak, uAppear, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift;
+uniform vec3 uTint, uTouch, uLightColor;
+uniform float uViewY, uPad, uDpr, uPeak, uAppear, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift, uLightSoftness, uLightDiffusion, uReflection, uFlow;
 out vec4 outColor;
 
 float roundedBox(vec2 p, vec2 b, float r) {
@@ -87,6 +87,17 @@ void main() {
   vec3 ray = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.5);
   vec2 shift = ray.xy / max(-ray.z, 0.5) * band * (0.35 + height) * uRefraction * 1.2 * uAppear;
 
+  if (uFlow > 0.0) {
+    float reachOut = 14.0 * uDpr;
+    float blurred = haloLod * 0.6;
+    vec3 weights = vec3(0.2126, 0.7152, 0.0722);
+    vec2 lean = vec2(
+      dot(textureLod(uBackdrop, toUv(px + vec2(reachOut, 0.0)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(reachOut, 0.0)), blurred).rgb, weights),
+      dot(textureLod(uBackdrop, toUv(px + vec2(0.0, reachOut)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(0.0, reachOut)), blurred).rgb, weights)
+    );
+    shift += lean * band * (0.35 + height) * uFlow * 1.1 * uAppear;
+  }
+
   vec2 fromTouch = px - uTouch.xy;
   float reach = 90.0 * uDpr;
   float touch = exp(-dot(fromTouch, fromTouch) / (reach * reach)) * uTouch.z;
@@ -108,14 +119,25 @@ void main() {
 
   float facing = dot(n.xy, uLightDir);
   vec2 centered = (px - uCanvas * 0.5) / (uCanvas * 0.5);
-  col += uLight * (max(facing, 0.0) * 0.3 + dot(centered, uLightDir) * 0.03);
-  col *= 1.0 - uLight * max(-facing, 0.0) * 0.2;
+  float lit = max((facing + uLightSoftness) / (1.0 + uLightSoftness), 0.0);
+  col *= mix(vec3(1.0), uLightColor, uLight * 0.35);
+  float aimed = 1.0 - uLightDiffusion * 0.6;
+  col += uLight * uLightColor * ((lit * 0.3 + dot(centered, uLightDir) * 0.03) * aimed + uLightDiffusion * 0.1);
+  col *= 1.0 - uLight * max(-facing, 0.0) * 0.2 * (1.0 - uLightSoftness) * (1.0 - uLightDiffusion);
 
   float toward = dot(g, uLightDir);
-  col += uGlint * pow(s, 5.0) * (pow(max(toward, 0.0), 6.0) + pow(max(-toward, 0.0), 6.0) * 0.4);
+  float sharp = mix(6.0, 2.0, uLightSoftness);
+  col += uGlint * uLightColor * pow(s, 5.0) * (pow(max(toward, 0.0), sharp) + pow(max(-toward, 0.0), sharp) * 0.4);
+
+  if (uReflection > 0.0) {
+    vec3 around = textureLod(uBackdrop, toUv(px + g * (2.0 * f.y + band)), haloLod * 0.35).rgb;
+    float shine = 0.8 + uLight * (0.2 + 0.6 * toward);
+    vec3 mirrored = clamp(around * mix(vec3(1.0), uLightColor, 0.6) * shine, 0.0, 1.0);
+    col = mix(col, 1.0 - (1.0 - col) * (1.0 - mirrored), uReflection * s * s);
+  }
 
   float line = smoothstep(-1.6 * uDpr, -0.6 * uDpr, d);
-  col += uRim * line * (0.18 + 0.82 * toward * toward);
+  col += uRim * uLightColor * line * (0.18 + 0.82 * toward * toward);
   col += touch * (0.16 + halo * 0.3);
 
   vec3 inside = clamp(col, 0.0, 1.0) * mask;

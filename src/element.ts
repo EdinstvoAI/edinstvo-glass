@@ -1,6 +1,6 @@
 import type { GlassSource } from "./backdrop.js";
 import { motionKeys } from "./interaction.js";
-import { type Material, kebab, numericKeys } from "./material.js";
+import { type MaterialLayer, kebab, numericKeys, readValue, stackLayers } from "./material.js";
 import { GlassSurface, placeCanvas, readMotion } from "./surface.js";
 
 const Base = (globalThis.HTMLElement ?? class {}) as typeof HTMLElement;
@@ -48,7 +48,7 @@ const css = `
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["source", "live", "tint", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "light-color", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
 
   protected surface: GlassSurface;
   private group: EdinstvoGlassGroup | null = null;
@@ -56,7 +56,7 @@ export class EdinstvoGlass extends Base {
   private standing = false;
   private ready = false;
   private sourceValue: GlassSource | undefined;
-  private materialValue: Partial<Material> | undefined;
+  private materialValue: MaterialLayer | undefined;
 
   constructor() {
     super();
@@ -138,11 +138,11 @@ export class EdinstvoGlass extends Base {
     this.sync();
   }
 
-  get material(): Partial<Material> {
+  get material(): MaterialLayer {
     return this.materialValue ?? {};
   }
 
-  set material(value: Partial<Material>) {
+  set material(value: MaterialLayer) {
     this.materialValue = value;
     this.sync();
   }
@@ -164,15 +164,17 @@ export class EdinstvoGlass extends Base {
     });
   }
 
-  composeMaterial(): Partial<Material> {
-    const overrides: Partial<Material> = {};
+  composeMaterial(): MaterialLayer {
+    const overrides: Record<string, unknown> = {};
     for (const [attribute, key] of materialAttributes) {
       const value = this.getAttribute(attribute);
-      if (value !== null) overrides[key] = parseFloat(value);
+      if (value !== null) overrides[key] = readValue(key, value);
     }
     const tint = this.getAttribute("tint");
     if (tint) overrides.tint = tint;
-    return { ...this.parentGroup?.composeMaterial(), ...this.material, ...overrides };
+    const color = this.getAttribute("light-color");
+    if (color) overrides.lightColor = color;
+    return stackLayers(this.parentGroup?.composeMaterial(), this.material, overrides);
   }
 }
 
