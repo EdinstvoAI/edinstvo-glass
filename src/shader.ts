@@ -49,7 +49,9 @@ vec2 field(vec2 p) {
     else apart = min(apart, own);
     if (own < 0.0) {
       vec2 edges = max(b - abs(c), 0.0) + r + 0.001;
-      inset = max(inset, mix(softMin(edges.x, edges.y) - r, -own, r / min(b.x, b.y)));
+      float round = r / min(b.x, b.y);
+      round *= round;
+      inset = max(inset, mix(softMin(edges.x, edges.y) - r, -own, round * round));
     }
   }
   float d = min(joined, apart);
