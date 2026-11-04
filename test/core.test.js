@@ -1,21 +1,24 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cornerRadius, fitBox, lightVector, uvTransform } from "../dist/geometry.js";
-import { numericKeys, presets, ranges, resolveMaterial } from "../dist/material.js";
+import { cornerRadius, fitBox, lightVector, softPeak, uvTransform } from "../dist/geometry.js";
+import { Spring, motionDefaults, resolveMotion } from "../dist/interaction.js";
+import { defaults, numericKeys, ranges, resolveMaterial } from "../dist/material.js";
 
 test("later layers win and values stay in range", () => {
-  const material = resolveMaterial(presets.frost, { frost: 4, refraction: -1, depth: Number.NaN });
+  const material = resolveMaterial(defaults, { frost: 4, refraction: -1, depth: Number.NaN });
   assert.equal(material.frost, 1);
   assert.equal(material.refraction, 0);
-  assert.equal(material.depth, presets.frost.depth);
+  assert.equal(material.depth, defaults.depth);
 });
 
-test("every preset sits inside the ranges", () => {
-  for (const preset of Object.values(presets)) {
-    for (const key of numericKeys) {
-      assert.ok(preset[key] >= ranges[key][0] && preset[key] <= ranges[key][1], key);
-    }
-  }
+test("defaults sit inside the ranges", () => {
+  for (const key of numericKeys) assert.ok(defaults[key] >= ranges[key][0] && defaults[key] <= ranges[key][1], key);
+});
+
+test("a child can opt out of merging", () => {
+  assert.equal(resolveMotion({ merge: 28 }, { merge: 0 }).merge, 0);
+  assert.equal(resolveMotion({ morph: 9 }).morph, 1);
+  assert.equal(resolveMotion().jelly, motionDefaults.jelly);
 });
 
 test("cover fills the box and centres the overflow", () => {
@@ -46,4 +49,20 @@ test("light angle zero points up", () => {
 
 test("the element module imports outside a browser", async () => {
   await assert.doesNotReject(import("../dist/element.js"));
+});
+
+test("the peak of a pill is its half height", () => {
+  assert.ok(softPeak(100, 50, 50) > 30 && softPeak(100, 50, 50) <= 50);
+});
+
+test("a spring overshoots, then settles on the target", () => {
+  const spring = new Spring(0, 190, 15);
+  spring.target = 1;
+  let top = 0;
+  for (let i = 0; i < 300; i++) {
+    spring.step(1 / 60);
+    top = Math.max(top, spring.value);
+  }
+  assert.ok(top > 1);
+  assert.equal(spring.value, 1);
 });

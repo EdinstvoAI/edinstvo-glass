@@ -10,18 +10,25 @@
   main { position: relative; min-height: 100%; display: grid; place-content: center; gap: 24px; justify-items: center; }
   .pill { border-radius: 999px; padding: 16px 40px; color: #fff; font-weight: 600; }
   .card { width: 360px; height: 200px; }
+  #group { position: relative; width: 460px; height: 110px; }
+  .blob { position: absolute; top: 15px; width: 80px; height: 80px; border-radius: 40px; box-shadow: none; touch-action: none; cursor: grab; transition: none; }
+  .blob.open { width: 200px; height: 110px; top: 0; border-radius: 28px; }
   #controls { position: fixed; top: 16px; right: 16px; display: grid; grid-template-columns: auto 140px 36px; gap: 4px 8px; padding: 12px; background: #000c; color: #fff; border-radius: 8px; font-size: 12px; align-items: center; }
-  #controls select { grid-column: 1 / -1; }
 </style>
 <canvas id="scene"></canvas>
 <main>
-  <edinstvo-glass id="card" class="card" material="regular" interaction="lively"></edinstvo-glass>
-  <edinstvo-glass class="pill" material="clear" interaction="calm">Glass</edinstvo-glass>
+  <edinstvo-glass id="card" class="card"></edinstvo-glass>
+  <edinstvo-glass class="pill" appear>Glass</edinstvo-glass>
+  <edinstvo-glass-group id="group" frost="0" transparency="0.99" lift="0" refraction="0.55" depth="18" dispersion="0.3" rim="0.5">
+    <edinstvo-glass class="blob" id="a" merge="28"></edinstvo-glass>
+    <edinstvo-glass class="blob" id="b" style="left:170px" merge="28"></edinstvo-glass>
+    <edinstvo-glass class="blob wide" id="c" style="left:340px"></edinstvo-glass>
+  </edinstvo-glass-group>
 </main>
 <div id="controls"></div>
 <script type="module">
   import "/dist/define.js";
-  import { presets, ranges } from "/dist/index.js";
+  import { defaults, motionDefaults, motionRanges, ranges } from "/dist/index.js";
 
   const scene = document.querySelector("#scene");
   const paint = () => {
@@ -50,13 +57,17 @@
   paint();
   addEventListener("resize", paint);
 
+  for (const blob of document.querySelectorAll(".blob")) {
+    let from = null;
+    blob.addEventListener("pointerdown", (e) => { from = [e.clientX - blob.offsetLeft, e.clientY - blob.offsetTop, e.clientX]; blob.setPointerCapture(e.pointerId); });
+    blob.addEventListener("pointermove", (e) => { if (from) { blob.style.left = `${e.clientX - from[0]}px`; blob.style.top = `${e.clientY - from[1]}px`; } });
+    blob.addEventListener("pointerup", (e) => { if (from && Math.abs(e.clientX - from[2]) < 4) blob.classList.toggle("open"); from = null; });
+  }
   const card = document.querySelector("#card");
   const controls = document.querySelector("#controls");
-  const select = document.createElement("select");
-  select.append(...Object.keys(presets).map((name) => new Option(name, name, name === "regular", name === "regular")));
-  controls.append(select);
   const inputs = {};
-  for (const [key, [min, max]] of Object.entries(ranges)) {
+  const values = { ...defaults, ...motionDefaults };
+  for (const [key, [min, max]] of Object.entries({ ...ranges, ...motionRanges })) {
     const label = document.createElement("label");
     label.textContent = key;
     const input = Object.assign(document.createElement("input"), { type: "range", min, max, step: (max - min) / 100 });
@@ -68,15 +79,9 @@
     controls.append(label, input, value);
     inputs[key] = { input, value };
   }
-  const load = () => {
-    for (const key of Object.keys(ranges)) card.removeAttribute(key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`));
-    card.setAttribute("material", select.value);
-    for (const [key, { input, value }] of Object.entries(inputs)) {
-      input.value = presets[select.value][key];
-      value.textContent = (+input.value).toFixed(2);
-    }
-  };
-  select.addEventListener("change", load);
-  load();
+  for (const [key, { input, value }] of Object.entries(inputs)) {
+    input.value = values[key];
+    value.textContent = (+input.value).toFixed(2);
+  }
 </script>
 </html>

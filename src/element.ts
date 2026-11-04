@@ -1,6 +1,6 @@
 import type { GlassSource } from "./backdrop.js";
-import type { Interaction, InteractionName } from "./interaction.js";
-import { type Material, type PresetName, kebab, numericKeys, presets } from "./material.js";
+import { motionKeys } from "./interaction.js";
+import { type Material, kebab, numericKeys } from "./material.js";
 import { GlassSurface, placeCanvas } from "./surface.js";
 
 const Base = (globalThis.HTMLElement ?? class {}) as typeof HTMLElement;
@@ -18,23 +18,42 @@ const css = `
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   backdrop-filter: blur(16px) saturate(1.6);
 }
+:host([data-grouped]) {
+  box-shadow: none;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:host([data-grouped]) > canvas {
+  display: none;
+}
+:host([data-glass-group]) {
+  display: block;
+  box-shadow: none;
+  border-radius: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 .content {
   display: block;
   position: relative;
   z-index: 1;
   border-radius: inherit;
+  scale: var(--glass-scale, 1);
+  opacity: var(--glass-appear, 1);
 }
 `;
 
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["material", "interaction", "source", "live", "tint", ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "appear", ...motionKeys, ...materialAttributes.keys()];
 
-  private surface: GlassSurface;
+  protected surface: GlassSurface;
+  private group: EdinstvoGlassGroup | null = null;
   private sourceValue: GlassSource | undefined;
-  private materialValue: PresetName | Partial<Material> | undefined;
-  private interactionValue: InteractionName | Interaction | undefined;
+  private materialValue: Partial<Material> | undefined;
 
   constructor() {
     super();
@@ -49,20 +68,45 @@ export class EdinstvoGlass extends Base {
     content.setAttribute("part", "content");
     content.append(document.createElement("slot"));
     root.append(style, canvas, content);
-    this.surface = new GlassSurface(this, canvas);
+    this.surface = new GlassSurface(this, canvas, {}, this.isGroup);
+  }
+
+  protected get isGroup() {
+    return false;
   }
 
   connectedCallback() {
+    this.group = this.parentElement?.closest<EdinstvoGlassGroup>("[data-glass-group]") ?? null;
+    if (this.group) {
+      this.dataset.grouped = "";
+      this.group.adopt(this);
+      return;
+    }
     this.sync();
     this.surface.connect();
   }
 
   disconnectedCallback() {
+    if (this.group) {
+      this.group.release(this);
+      this.group = null;
+      delete this.dataset.grouped;
+      return;
+    }
     this.surface.disconnect();
   }
 
+  show() {
+    return this.surface.show();
+  }
+
+  hide() {
+    return this.surface.hide();
+  }
+
   attributeChangedCallback() {
-    if (this.isConnected) this.sync();
+    if (this.group) this.group.refresh();
+    else if (this.isConnected) this.sync();
   }
 
   get source() {
@@ -74,21 +118,12 @@ export class EdinstvoGlass extends Base {
     this.sync();
   }
 
-  get material(): PresetName | Partial<Material> {
-    return this.materialValue ?? ((this.getAttribute("material") ?? "regular") as PresetName);
+  get material(): Partial<Material> {
+    return this.materialValue ?? {};
   }
 
-  set material(value: PresetName | Partial<Material>) {
+  set material(value: Partial<Material>) {
     this.materialValue = value;
-    this.sync();
-  }
-
-  get interaction(): InteractionName | Interaction {
-    return this.interactionValue ?? ((this.getAttribute("interaction") ?? "none") as InteractionName);
-  }
-
-  set interaction(value: InteractionName | Interaction) {
-    this.interactionValue = value;
     this.sync();
   }
 
@@ -96,17 +131,17 @@ export class EdinstvoGlass extends Base {
     this.surface.invalidate();
   }
 
-  private sync() {
+  protected sync() {
     const live = this.getAttribute("live");
     this.surface.set({
       material: this.composeMaterial(),
-      interaction: this.interaction,
       source: this.source,
       live: live === null ? undefined : live !== "false",
+      appear: this.hasAttribute("appear"),
     });
   }
 
-  private composeMaterial(): PresetName | Partial<Material> {
+  private composeMaterial(): Partial<Material> {
     const overrides: Partial<Material> = {};
     for (const [attribute, key] of materialAttributes) {
       const value = this.getAttribute(attribute);
@@ -114,14 +149,34 @@ export class EdinstvoGlass extends Base {
     }
     const tint = this.getAttribute("tint");
     if (tint) overrides.tint = tint;
-    if (!Object.keys(overrides).length) return this.material;
-    const base = this.material;
-    return typeof base === "string" ? { ...presetOf(base), ...overrides } : { ...base, ...overrides };
+    return { ...this.material, ...overrides };
   }
 }
 
-const presetOf = (name: PresetName) => presets[name] ?? presets.regular;
+export class EdinstvoGlassGroup extends EdinstvoGlass {
+  protected get isGroup() {
+    return true;
+  }
+
+  connectedCallback() {
+    this.dataset.glassGroup = "";
+    super.connectedCallback();
+  }
+
+  adopt(child: EdinstvoGlass) {
+    this.surface.track(child);
+  }
+
+  release(child: EdinstvoGlass) {
+    this.surface.untrack(child);
+  }
+
+  refresh() {
+    this.surface.restyle();
+  }
+}
 
 export function defineGlass(tag = "edinstvo-glass") {
+  if (!customElements.get(`${tag}-group`)) customElements.define(`${tag}-group`, class extends EdinstvoGlassGroup {});
   if (!customElements.get(tag)) customElements.define(tag, class extends EdinstvoGlass {});
 }
