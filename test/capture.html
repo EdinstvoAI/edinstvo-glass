@@ -1,0 +1,59 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Capture check</title>
+<style>
+  body { margin: 0; }
+  .box { width: 240px; height: 120px; }
+  #text { background: #fff; color: #000; font: 700 48px/120px sans-serif; }
+  #gradient { background: linear-gradient(90deg, #f00, #00f); }
+  #page { background: #fff; }
+</style>
+<div id="text" class="box">Glass</div>
+<div id="gradient" class="box"></div>
+<div id="page" class="box">Text<edinstvo-glass source="#page" style="width:80px;height:80px"></edinstvo-glass></div>
+<script type="module">
+  const checks = {};
+  const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+  const check = (name, passed) => { checks[name] = Boolean(passed); };
+  const pixels = (canvas) => canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+  const dark = (canvas) => { const data = pixels(canvas); let count = 0; for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 200 && data[i] < 80) count++; return count; };
+  const at = (canvas, x, y) => [...canvas.getContext("2d").getImageData(Math.round(x * (canvas.width - 1)), Math.round(y * (canvas.height - 1)), 1, 1).data];
+  const shot = (element, content) => new Promise((done, fail) => {
+    const look = () => { try { const canvas = captured(element, content, look); if (canvas) done(canvas); } catch (error) { fail(error); } };
+    look();
+    setTimeout(() => fail(new Error("timed out")), 8000);
+  });
+  let error = null, captured;
+  try {
+    ({ captured } = await import("/dist/capture.js"));
+    const text = document.querySelector("#text");
+    const before = dark(await shot(text, true));
+    check("reads page text", before > 100);
+    text.textContent = "";
+    await wait(800);
+    check("sees the page change", dark(await shot(text, true)) < before / 4);
+    const gradient = await shot(document.querySelector("#gradient"), false);
+    const [left, right] = [at(gradient, 0.02, 0.5), at(gradient, 0.98, 0.5)];
+    check("reads css gradients", left[0] > 200 && left[2] < 60 && right[2] > 200 && right[0] < 60);
+
+    await import("/dist/define.js");
+    await wait(1200);
+    check("glass stays on webgl", document.querySelector("#page edinstvo-glass").dataset.engine === "webgl");
+  } catch (reason) { error = String(reason); }
+  try {
+    const decode = HTMLImageElement.prototype.decode;
+    HTMLImageElement.prototype.decode = () => Promise.reject(new Error("refused"));
+    const glass = document.createElement("edinstvo-glass");
+    const target = document.createElement("div");
+    target.id = "refused"; target.className = "box"; target.textContent = "x";
+    document.body.append(target);
+    glass.setAttribute("source", "#refused");
+    glass.style.cssText = "width:80px;height:80px;position:fixed;top:0;left:0";
+    document.body.append(glass);
+    await wait(1200);
+    HTMLImageElement.prototype.decode = decode;
+    check("falls back to css when refused", glass.dataset.engine === "css");
+  } catch (reason) { error ??= String(reason); }
+  window.result = { agent: navigator.userAgent, checks, error };
+  await fetch("/result", { method: "POST", body: JSON.stringify(window.result) });
+</script>
