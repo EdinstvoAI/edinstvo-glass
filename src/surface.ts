@@ -14,6 +14,8 @@ export interface GlassOptions {
 }
 
 const pad = 32;
+const stackBudget = 8;
+let stacked = 0;
 const surfaces = new Set<GlassSurface>();
 let scene: MaterialLayer = {};
 
@@ -37,6 +39,7 @@ function tick(now: number) {
   const dt = Math.min((now - lastTick) / 1000, 1 / 30);
   lastTick = now;
   Renderer.shared?.nextFrame();
+  stacked = 0;
   let again = false;
   for (const surface of surfaces) again = surface.update(dt) || again;
   if (again) wake();
@@ -284,14 +287,17 @@ export class GlassSurface {
 
   private layered(backdrop: Backdrop, frame: Frame, dpr: number): Backdrop {
     const under = [...surfaces].filter((other) => other !== this && other.frame && overlap(other.frame, frame) && this.above(other));
-    if (!under.length) return backdrop;
+    if (!under.length || stacked >= stackBudget) return backdrop;
+    stacked++;
     const width = Math.round((frame.right - frame.left) * dpr);
     const height = Math.round((frame.bottom - frame.top) * dpr);
     this.stack ??= document.createElement("canvas");
-    this.stack.width = width;
-    this.stack.height = height;
+    if (this.stack.width !== width || this.stack.height !== height) {
+      this.stack.width = width;
+      this.stack.height = height;
+    }
     const context = this.stack.getContext("2d")!;
-    context.scale(dpr, dpr);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { map } = backdrop;
     context.drawImage(backdrop.image, map.x - frame.left, map.y - frame.top, map.w, map.h);
     for (const other of under) {
