@@ -2,11 +2,11 @@ import { type Backdrop, type GlassSource, resolveBackdrop } from "./backdrop.js"
 import { resolveTint } from "./color.js";
 import { cornerRadius, lightVector, softPeak, uvTransform } from "./geometry.js";
 import { type Motion, Shape, type ShapeBox, Spring, motionKeys, resolveMotion, still } from "./interaction.js";
-import { type Material, kebab, numericKeys, resolveMaterial } from "./material.js";
+import { type MaterialLayer, type SceneLight, kebab, numericKeys, readValue, resolveMaterial, sceneLayer, stackLayers } from "./material.js";
 import { Renderer, maxShapes } from "./renderer.js";
 
 export interface GlassOptions {
-  material?: Partial<Material>;
+  material?: MaterialLayer;
   motion?: Partial<Motion>;
   source?: GlassSource;
   live?: boolean;
@@ -15,6 +15,15 @@ export interface GlassOptions {
 
 const pad = 32;
 const surfaces = new Set<GlassSurface>();
+let scene: MaterialLayer = {};
+
+export function setSceneLight(light: SceneLight | null) {
+  scene = light ? stackLayers(scene, sceneLayer(light)) : {};
+  for (const surface of surfaces) {
+    surface.restyle();
+    surface.invalidate();
+  }
+}
 let pending = 0;
 let lastTick = 0;
 let listening = false;
@@ -80,6 +89,7 @@ export class GlassSurface {
   private connected = false;
   private signature = "";
   private material = resolveMaterial();
+  private lightColor: readonly [number, number, number] = [1, 1, 1];
   private reduced = false;
   private frame: Frame | null = null;
   private stack: HTMLCanvasElement | null = null;
@@ -171,17 +181,20 @@ export class GlassSurface {
 
   restyle() {
     const style = getComputedStyle(this.host);
-    const tokens: Partial<Material> = {};
+    const tokens: Record<string, unknown> = {};
     for (const key of numericKeys) {
       const value = style.getPropertyValue(`--glass-${kebab(key)}`);
-      if (value) tokens[key] = parseFloat(value);
+      if (value) tokens[key] = readValue(key, value);
     }
     const tint = style.getPropertyValue("--glass-tint").trim();
     if (tint) tokens.tint = tint;
-    this.material = resolveMaterial(tokens, this.options.material);
+    const lightColor = style.getPropertyValue("--glass-light-color").trim();
+    if (lightColor) tokens.lightColor = lightColor;
+    this.material = resolveMaterial(stackLayers(scene, tokens as MaterialLayer, this.options.material));
     this.layer = parseInt(style.zIndex) || 0;
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.tint = resolveTint(this.material.tint);
+    this.lightColor = resolveTint(this.material.lightColor);
     const base = resolveMotion(this.options.motion, readMotion(this.host));
     for (const shape of this.shapes.values()) {
       const { element } = shape;
@@ -342,6 +355,7 @@ export class GlassSurface {
       uvPerPixel: perPixel,
       lightDir: [x / length, y / length],
       tint: this.tint,
+      lightColor: this.lightColor,
       material: this.material,
     });
     this.frame = frame;

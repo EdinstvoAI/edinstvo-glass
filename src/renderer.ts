@@ -20,11 +20,12 @@ export interface DrawJob {
   uvOrigin: readonly [number, number];
   uvPerPixel: readonly [number, number];
   lightDir: readonly [number, number];
+  lightColor: readonly [number, number, number];
   tint: readonly [number, number, number];
   material: Material;
 }
 
-const uniformNames = ["uBoxes", "uForms", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uPeak", "uAppear", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
+const uniformNames = ["uBoxes", "uForms", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uLightColor", "uLightSoftness", "uLightDiffusion", "uReflection", "uFlow", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uPeak", "uAppear", "uLight", "uTransparency", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
 const maxTextures = 8;
 const maxTextureSide = 4096;
 
@@ -244,6 +245,11 @@ export class Renderer {
     gl.uniform1f(u.uPad, job.pad);
     gl.uniform1f(u.uDpr, job.dpr);
     gl.uniform1f(u.uLight, m.light);
+    gl.uniform3f(u.uLightColor, job.lightColor[0], job.lightColor[1], job.lightColor[2]);
+    gl.uniform1f(u.uLightSoftness, m.lightSoftness);
+    gl.uniform1f(u.uLightDiffusion, m.lightDiffusion);
+    gl.uniform1f(u.uReflection, m.reflection);
+    gl.uniform1f(u.uFlow, m.dynamicRefraction);
     gl.uniform1f(u.uTransparency, m.transparency);
     gl.uniform1f(u.uRefraction, m.refraction);
     gl.uniform1f(u.uDepth, m.depth);
