@@ -16,7 +16,7 @@ test("defaults sit inside the ranges", () => {
 });
 
 test("thickness inherits independently and accepts local overrides", () => {
-  assert.equal(defaults.thickness, 0.5);
+  assert.equal(defaults.thickness, 6);
   const material = resolveMaterial({ thickness: 0.8, refraction: 0.4 }, { thickness: "inherit", refraction: 0.7 });
   assert.equal(material.thickness, 0.8);
   assert.equal(material.refraction, 0.7);

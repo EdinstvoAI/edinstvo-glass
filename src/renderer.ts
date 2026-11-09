@@ -46,6 +46,7 @@ export class Renderer {
   private canvas = document.createElement("canvas");
   private gl!: WebGL2RenderingContext;
   private uniforms = {} as Record<(typeof uniformNames)[number], WebGLUniformLocation | null>;
+  private strokeUniform: WebGLUniformLocation | null = null;
   private textures = new Map<GlassImage, Texture>();
   private frame = 0;
   private lens!: WebGLProgram;
@@ -102,6 +103,7 @@ export class Renderer {
     gl.uniform1i(gl.getUniformLocation(lens, "uBackdrop"), 0);
     gl.uniform1i(gl.getUniformLocation(lens, "uFrosted"), 1);
     for (const name of uniformNames) this.uniforms[name] = gl.getUniformLocation(lens, name);
+    this.strokeUniform = gl.getUniformLocation(lens, "uStrokeThickness");
     return true;
   }
 
@@ -252,6 +254,7 @@ export class Renderer {
     gl.uniform1f(u.uFlow, m.dynamicRefraction);
     gl.uniform1f(u.uTransparency, m.transparency);
     gl.uniform1f(u.uThickness, m.thickness);
+    gl.uniform1f(this.strokeUniform, m.strokeThickness);
     gl.uniform1f(u.uRefraction, m.refraction);
     gl.uniform1f(u.uDepth, m.depth);
     gl.uniform1f(u.uDispersion, m.dispersion);

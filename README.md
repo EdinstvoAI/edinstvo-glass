@@ -62,13 +62,13 @@ npm test
 
 ## Thickness
 
-`thickness` is a normalized material value from `0` to `1` (default `0.5`). It scales the screen-space refraction path, dynamic refraction and channel separation, and adjusts edge highlights. Set it like any other material property:
+`thickness` sets the optical distance between the front and back surfaces in CSS pixels, from `0` to `96` (default `6`). `depth` controls the curved surface profile. `strokeThickness` independently sets the visible rim width, from `0` to `8` CSS pixels (default `1`).
 
 ```html
-<edinstvo-glass thickness="0.8" refraction="0.45">Content</edinstvo-glass>
+<edinstvo-glass thickness="18" stroke-thickness="1" refraction="0.45">Content</edinstvo-glass>
 ```
 
-A local material layer can override it independently; `inherit` keeps the scene value and `default` restores `0.5`. Thickness is an optical control, not a measurement in millimetres: the renderer uses a 2D signed-distance surface, an approximate normal and a fixed refractive index. It does not simulate a volumetric solid, true bevel mesh or wavelength-specific glass.
+A local material layer can override each property independently; `inherit` keeps the parent value and `default` restores the engine default. Refraction uses the travel distance through an approximated curved front surface and a flat back surface, with a fixed refractive index. This models optical volume under an orthographic view; it does not provide a rotatable 3D mesh, multiple internal reflections or ray tracing through a solid.
 
 ## Lighting
 

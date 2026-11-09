@@ -16,6 +16,7 @@ uniform vec2 uForms[MAX_SHAPES];
 uniform int uCount;
 uniform vec2 uCanvas, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint, uTouch, uLightColor;
+uniform float uStrokeThickness;
 uniform float uViewY, uPad, uDpr, uPeak, uAppear, uLight, uTransparency, uThickness, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift, uLightSoftness, uLightDiffusion, uReflection, uFlow;
 out vec4 outColor;
 
@@ -48,14 +49,16 @@ vec2 field(vec2 p) {
     if (uForms[i].y > 0.0) joined = blend(joined, own, uForms[i].y);
     else apart = min(apart, own);
     if (own < 0.0) {
-      vec2 edges = max(b - abs(c), 0.0) + r + 0.001;
+      vec2 edges = max(b - sqrt(c * c + vec2(0.01)), 0.0) + r + 0.001;
       float round = r / min(b.x, b.y);
       round *= round;
       inset = max(inset, mix(softMin(edges.x, edges.y) - r, -own, round * round));
     }
   }
   float d = min(joined, apart);
-  return vec2(d, max(inset, -d));
+  float interior = max(inset, 0.0);
+  float transition = smoothstep(0.0, max(2.0 * uDpr, uPeak * 0.15), -d);
+  return vec2(d, inset < -1e4 ? max(-d, 0.0) : mix(max(-d, 0.0), interior, transition));
 }
 
 vec2 toUv(vec2 px) {
@@ -83,12 +86,13 @@ void main() {
   float height = sqrt(max(1.0 - s * s, 0.0));
   float e = uDpr;
   vec2 slope = vec2(field(px - vec2(e, 0.0)).y - field(px + vec2(e, 0.0)).y, field(px - vec2(0.0, e)).y - field(px + vec2(0.0, e)).y);
-  vec2 g = slope / max(length(slope), 0.0001);
+  vec2 gradient = slope / (2.0 * e);
+  vec2 g = gradient / sqrt(dot(gradient, gradient) + 0.04);
   vec3 n = normalize(vec3(g * s * s / sqrt(1.02 - s * s), 1.0));
 
   vec3 ray = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.5);
-  float opticalPath = uThickness * 2.0;
-  vec2 shift = ray.xy / max(-ray.z, 0.5) * band * (0.35 + height) * uRefraction * 1.2 * opticalPath * uAppear;
+  float opticalPath = uThickness * uDpr * (0.35 + height);
+  vec2 shift = ray.xy / max(-ray.z, 0.5) * opticalPath * uRefraction * 1.2 * uAppear;
 
   if (uFlow > 0.0) {
     float reachOut = 32.0 * uDpr;
@@ -98,7 +102,7 @@ void main() {
       dot(vec3(0.6, 0.15, 0.25), textureLod(uBackdrop, toUv(px + vec2(0.0, reachOut)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(0.0, reachOut)), blurred).rgb)
     );
     lean /= 1.0 + length(lean) * 1.5;
-    shift += lean * max(band, 24.0 * uDpr) * (0.35 + height) * uFlow * 1.6 * opticalPath * uAppear;
+    shift += lean * opticalPath * uFlow * 1.6 * uAppear;
   }
 
   vec2 fromTouch = px - uTouch.xy;
@@ -108,7 +112,7 @@ void main() {
 
   vec2 at = px + shift;
   float squeeze = log2(max(max(length(dFdx(at)), length(dFdy(at))) * texels, 1.0));
-  float k = (0.04 + uDispersion * 0.3) * opticalPath;
+  float k = 0.04 + uDispersion * 0.3;
   vec3 col = vec3(
     pick(at - shift * k, squeeze).r,
     pick(at, squeeze).g,
@@ -130,7 +134,7 @@ void main() {
 
   float toward = dot(g, uLightDir);
   float sharp = mix(6.0, 2.0, uLightSoftness);
-  col += uGlint * uLightColor * mix(0.65, 1.35, uThickness) * pow(s, 5.0) * (pow(max(toward, 0.0), sharp) + pow(max(-toward, 0.0), sharp) * 0.4);
+  col += uGlint * uLightColor * pow(s, 5.0) * (pow(max(toward, 0.0), sharp) + pow(max(-toward, 0.0), sharp) * 0.4);
 
   if (uReflection > 0.0) {
     vec3 around = textureLod(uBackdrop, toUv(px + g * (2.0 * f.y + band)), haloLod * 0.35).rgb;
@@ -139,8 +143,9 @@ void main() {
     col = mix(col, 1.0 - (1.0 - col) * (1.0 - mirrored), uReflection * s * s);
   }
 
-  float line = smoothstep(-1.6 * uDpr, -0.6 * uDpr, d);
-  col += uRim * uLightColor * mix(0.65, 1.35, uThickness) * line * (0.18 + 0.82 * toward * toward);
+  float stroke = max(uStrokeThickness * uDpr, 0.001);
+  float line = smoothstep(-1.6 * stroke, -0.6 * stroke, d) * step(0.001, uStrokeThickness);
+  col += uRim * uLightColor * line * (0.18 + 0.82 * toward * toward);
   col += touch * (0.16 + halo * 0.3);
 
   vec3 inside = clamp(col, 0.0, 1.0) * mask;
