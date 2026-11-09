@@ -43,6 +43,10 @@
     await import("/dist/define.js");
     await wait(1200);
     check("glass stays on webgl", !webgl || document.querySelector("#page edinstvo-glass").dataset.engine === "webgl");
+    if (webgl) {
+      const { checkAdaptation } = await import("/test/adaptation.js");
+      await checkAdaptation(check, wait);
+    }
   } catch (reason) { error = String(reason); }
   try {
     const decode = HTMLImageElement.prototype.decode;

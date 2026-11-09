@@ -1,5 +1,6 @@
 import { type Backdrop, type GlassSource, resolveBackdrop } from "./backdrop.js";
-import { resolveTint } from "./color.js";
+import { resolveTint, prefersDark } from "./color.js";
+import { BackdropAnalyzer, adaptiveMaterial } from "./adaptation.js";
 import { cornerRadius, lightVector, softPeak, uvTransform } from "./geometry.js";
 import { type Motion, Shape, type ShapeBox, Spring, motionKeys, resolveMotion, still } from "./interaction.js";
 import { type MaterialLayer, type SceneLight, kebab, numericKeys, readValue, resolveMaterial, sceneLayer, stackLayers } from "./material.js";
@@ -18,6 +19,12 @@ const stackBudget = 8;
 let stacked = 0;
 const surfaces = new Set<GlassSurface>();
 let scene: MaterialLayer = {};
+let sceneMaterial: MaterialLayer = {};
+
+export function setSceneMaterial(material: MaterialLayer | null) {
+  sceneMaterial = material ? { ...material } : {};
+  for (const surface of surfaces) surface.restyle();
+}
 
 export function setSceneLight(light: SceneLight | null) {
   scene = light ? stackLayers(scene, sceneLayer(light)) : {};
@@ -73,6 +80,7 @@ function listen() {
   addEventListener("scroll", nudgeAll, { capture: true, passive: true });
   addEventListener("resize", nudgeAll, { passive: true });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", restyleAll);
+  for (const query of ["(prefers-contrast: more)", "(prefers-reduced-transparency: reduce)", "(forced-colors: active)"]) matchMedia(query).addEventListener("change", restyleAll);
   new MutationObserver(restyleAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   if (Renderer.shared) Renderer.shared.onRestore = restyleAll;
 }
@@ -102,6 +110,10 @@ export class GlassSurface {
   private boxes = new Float32Array(maxShapes * 4);
   private forms = new Float32Array(maxShapes * 2);
   private layer = 0;
+  private analyzer: BackdropAnalyzer | null = null;
+  private moreContrast = false;
+  private reduceTransparency = false;
+  private forcedColors = false;
 
   constructor(private host: HTMLElement, private canvas: HTMLCanvasElement, private options: GlassOptions = {}, private group = false) {
     this.context = canvas.getContext("2d")!;
@@ -126,6 +138,9 @@ export class GlassSurface {
   }
 
   disconnect() {
+    this.analyzer?.destroy(); this.analyzer = null;
+    this.host.style.removeProperty("--glass-foreground");
+    delete this.host.dataset.glassContrast;
     this.connected = false;
     surfaces.delete(this);
     this.resize.disconnect();
@@ -193,7 +208,22 @@ export class GlassSurface {
     if (tint) tokens.tint = tint;
     const lightColor = style.getPropertyValue("--glass-light-color").trim();
     if (lightColor) tokens.lightColor = lightColor;
-    this.material = resolveMaterial(stackLayers(scene, tokens as MaterialLayer, this.options.material));
+    const foreground = style.getPropertyValue("--glass-text-color").trim();
+    const adaptation = style.getPropertyValue("--glass-adaptation").trim();
+    if (foreground) tokens.foreground = foreground;
+    if (adaptation) tokens.adaptation = adaptation;
+    this.material = resolveMaterial(stackLayers(sceneMaterial, scene, tokens as MaterialLayer, this.options.material));
+    this.moreContrast = matchMedia("(prefers-contrast: more)").matches;
+    this.reduceTransparency = matchMedia("(prefers-reduced-transparency: reduce)").matches;
+    this.forcedColors = matchMedia("(forced-colors: active)").matches;
+    this.canvas.hidden = this.forcedColors;
+    if (this.material.adaptation === "off" || !this.material.adaptationStrength) {
+      this.analyzer?.destroy(); this.analyzer = null;
+      delete this.host.dataset.glassContrast;
+      if (this.material.foreground === "auto") this.host.style.removeProperty("--glass-foreground");
+    }
+    if (this.material.foreground !== "auto") this.host.style.setProperty("--glass-foreground", this.material.foreground);
+    else if (this.material.adaptation === "tint") this.host.style.removeProperty("--glass-foreground");
     this.layer = parseInt(style.zIndex) || 0;
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.tint = resolveTint(this.material.tint);
@@ -214,6 +244,7 @@ export class GlassSurface {
   }
 
   update(dt: number) {
+    if (this.forcedColors) return false;
     if (!this.visible) return false;
     if (!this.forced && !this.moved && !this.live && !this.moving) return false;
 
@@ -315,6 +346,17 @@ export class GlassSurface {
     const bottom = Math.ceil(Math.max(...list.map((b) => b.y + b.halfH))) + pad;
     const frame = { left, top, right, bottom };
     const backdrop = this.layered(source, frame, dpr);
+    let material = this.material, tint = this.tint;
+    if (material.adaptation !== "off" && material.adaptationStrength > 0) {
+      this.analyzer ??= new BackdropAnalyzer(() => this.invalidate());
+      const analysis = this.analyzer.sample(backdrop, rect, prefersDark());
+      if (analysis) {
+        const result = adaptiveMaterial(material, analysis, tint, material.foreground === "auto" ? null : resolveTint(material.foreground), this.moreContrast, this.reduceTransparency);
+        material = result.material; tint = result.tint;
+        this.host.dataset.glassContrast = result.contrast.toFixed(2);
+        if (material.adaptation !== "tint") this.host.style.setProperty("--glass-foreground", `rgb(${result.foreground.map(c => Math.round(c * 255)).join(" ")})`);
+      }
+    }
     const canvasW = Math.round((right - left) * dpr);
     const canvasH = Math.round((bottom - top) * dpr);
     if (this.canvas.width !== canvasW || this.canvas.height !== canvasH) {
@@ -372,9 +414,9 @@ export class GlassSurface {
       uvOrigin: origin,
       uvPerPixel: perPixel,
       lightDir: [x / length, y / length],
-      tint: this.tint,
+      tint,
       lightColor: this.lightColor,
-      material: this.material,
+      material,
     });
     this.frame = frame;
     for (const other of surfaces) {

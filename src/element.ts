@@ -51,13 +51,19 @@ const css = `
   border-radius: inherit;
   scale: var(--glass-scale, 1);
   opacity: var(--glass-appear, 1);
+  color: var(--glass-foreground, inherit);
+}
+@media (forced-colors: active) {
+  :host { background: Canvas; border: 1px solid CanvasText; }
+  canvas, .shade { display: none; }
+  .content { color: CanvasText; }
 }
 `;
 
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["source", "live", "tint", "light-color", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "light-color", "adaptation", "foreground", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
 
   protected surface: GlassSurface;
   private group: EdinstvoGlassGroup | null = null;
@@ -185,6 +191,10 @@ export class EdinstvoGlass extends Base {
     if (tint) overrides.tint = tint;
     const color = this.getAttribute("light-color");
     if (color) overrides.lightColor = color;
+    for (const key of ["adaptation", "foreground"] as const) {
+      const value = this.getAttribute(key);
+      if (value) overrides[key] = value;
+    }
     return stackLayers(this.parentGroup?.composeMaterial(), this.material, overrides);
   }
 }

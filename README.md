@@ -87,3 +87,32 @@ setSceneLight({ direction: "top-left", intensity: "80%", color: "white", softnes
 ```
 
 See [Lighting](https://glass.makark.ru/docs/lighting/).
+
+## Background adaptation
+
+Adaptation is off by default. Enable it per element or once for the scene:
+
+```js
+import { setSceneMaterial } from "@edinstvo/glass";
+setSceneMaterial({ adaptation: "full", adaptationStrength: 1 });
+```
+
+```html
+<edinstvo-glass adaptation="contrast">Readable text</edinstvo-glass>
+<edinstvo-glass adaptation="off" tint="#fff">Manual material</edinstvo-glass>
+```
+
+| Mode | What changes |
+| --- | --- |
+| `off` | No background analysis; all material values stay manual |
+| `tint` | An automatic tint follows the local light/dark background; text stays under application control |
+| `contrast` | Automatic tint, foreground and transparency adapt to sampled contrast |
+| `full` | Contrast adaptation also raises frost on visually complex backgrounds |
+
+`adaptationStrength` (`0`–`1`) blends the adjustment with your material. Explicit `tint` and `foreground` colors are retained. Set `foreground="auto"` for automatic black/white text. Modes `contrast` and `full` publish the chosen text color as `--glass-foreground`; web components apply it to their content. With `attachGlass`, apply `color: var(--glass-foreground, inherit)` to the text you want to adapt. Input tokens are `--glass-adaptation`, `--glass-adaptation-strength` and `--glass-text-color`.
+
+The engine samples a 12×12 crop of the supplied backdrop at most once per 150 ms per active surface. Samples include local color, luminance and variation. Samples are cached and analysis is not run for `off` or strength `0`. `setSceneMaterial(null)` clears scene material defaults; `setSceneLight` continues to override the lighting properties independently. Local `inherit` and `default` work per property.
+
+Contrast modes target 4.5:1 for sampled colors, or 7:1 with `prefers-contrast: more`, using the [W3C relative luminance and contrast definition](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). This is an estimate before optical distortion, lighting and final text rendering, not a WCAG compliance guarantee. Manual colors or reduced adaptation strength may prevent the target from being reached. `data-glass-contrast` reports the sampled estimate. Audit the rendered interface separately.
+
+`prefers-reduced-transparency: reduce` lowers transparency in contrast modes. Forced colors hide the optical canvas and use system colors in web components. Neither preference starts a continuous animation loop.

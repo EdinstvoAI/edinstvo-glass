@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { cornerRadius, fitBox, lightVector, softPeak, uvTransform } from "../dist/geometry.js";
 import { Spring, motionDefaults, resolveMotion } from "../dist/interaction.js";
 import { defaults, numericKeys, ranges, readValue, resolveMaterial, sceneLayer, stackLayers } from "../dist/material.js";
+import { adaptiveMaterial, contrast, luminance } from "../dist/adaptation.js";
 
 test("later layers win and values stay in range", () => {
   const material = resolveMaterial(defaults, { frost: 4, refraction: -1, depth: Number.NaN });
@@ -13,6 +14,33 @@ test("later layers win and values stay in range", () => {
 
 test("defaults sit inside the ranges", () => {
   for (const key of numericKeys) assert.ok(defaults[key] >= ranges[key][0] && defaults[key] <= ranges[key][1], key);
+});
+
+test("adaptive contrast covers the sampled extremes without changing the material", () => {
+  const samples = [[0, 0, 0], [1, 1, 1]];
+  const base = resolveMaterial({ adaptation: "full", frost: 0.1 });
+  const snapshot = { ...base };
+  const result = adaptiveMaterial(base, { mean: [0.5, 0.5, 0.5], samples, complexity: 1, dark: false }, [1, 1, 1], null);
+  assert.ok(result.contrast >= 4.49);
+  assert.ok(result.material.transparency < base.transparency);
+  assert.ok(result.material.frost > base.frost);
+  assert.deepEqual(base, snapshot);
+  assert.equal(luminance([0, 0, 0]), 0);
+  assert.equal(luminance([1, 1, 1]), 1);
+  assert.equal(contrast([0, 0, 0], [1, 1, 1]), 21);
+});
+
+test("adaptation respects manual tint, strength and accessibility preferences", () => {
+  const stats = { mean: [1, 1, 1], samples: [[1, 1, 1]], complexity: 0, dark: false };
+  const tint = [0.9, 0.8, 0.7];
+  const base = resolveMaterial({ adaptation: "contrast", tint: "#e6ccb3" });
+  assert.deepEqual(adaptiveMaterial(base, stats, tint, null).tint, tint);
+  const strong = adaptiveMaterial(base, stats, tint, null, true, true);
+  assert.ok(strong.material.transparency <= 0.2);
+  const disabled = adaptiveMaterial({ ...base, adaptationStrength: 0 }, stats, tint, null);
+  assert.equal(disabled.material.transparency, base.transparency);
+  assert.equal(resolveMaterial({ adaptation: "full" }, { adaptation: "inherit" }).adaptation, "full");
+  assert.equal(resolveMaterial({ adaptation: "full" }, { adaptation: "default" }).adaptation, "off");
 });
 
 test("thickness inherits independently and accepts local overrides", () => {

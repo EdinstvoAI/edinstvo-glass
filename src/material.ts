@@ -19,9 +19,12 @@ export interface Material {
   frost: number;
   splay: number;
   tint: string;
+  adaptation: "off" | "tint" | "contrast" | "full";
+  adaptationStrength: number;
+  foreground: string;
 }
 
-export type TextKey = "tint" | "lightColor";
+export type TextKey = "tint" | "lightColor" | "adaptation" | "foreground";
 export type NumericKey = Exclude<keyof Material, TextKey>;
 export type MaterialLayer = { [K in keyof Material]?: Material[K] | "inherit" | "default" };
 
@@ -52,11 +55,12 @@ export const ranges: Record<NumericKey, readonly [number, number]> = {
   dispersion: [0, 1],
   frost: [0, 1],
   splay: [0, 1],
+  adaptationStrength: [0, 1],
 };
 
 export const numericKeys = Object.keys(ranges) as NumericKey[];
 
-export const defaults: Material = { thickness: 6, strokeThickness: 1, bloom: 0.2, light: 0.3, glint: 0, rim: 0.35, lift: 0.15, lightAngle: -45, transparency: 0.85, refraction: 0.3, depth: 6, dispersion: 0.2, frost: 0.7, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0 };
+export const defaults: Material = { thickness: 6, strokeThickness: 1, bloom: 0.2, light: 0.3, glint: 0, rim: 0.35, lift: 0.15, lightAngle: -45, transparency: 0.85, refraction: 0.3, depth: 6, dispersion: 0.2, frost: 0.7, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0, adaptation: "off", adaptationStrength: 1, foreground: "auto" };
 
 export const clampValue = (key: NumericKey, value: number) => {
   const [min, max] = ranges[key];
@@ -102,11 +106,14 @@ export function resolveMaterial(...layers: (MaterialLayer | undefined)[]): Mater
       if (value === "default") result[key] = defaults[key];
       else if (typeof value === "number" && Number.isFinite(value)) result[key] = clampValue(key, value);
     }
-    for (const key of ["tint", "lightColor"] as const) {
+    for (const key of ["tint", "lightColor", "foreground"] as const) {
       const value = layer[key];
       if (value === "default") result[key] = defaults[key];
       else if (value && value !== "inherit") result[key] = value;
     }
+    const adaptation = layer.adaptation;
+    if (adaptation === "default") result.adaptation = defaults.adaptation;
+    else if (adaptation === "off" || adaptation === "tint" || adaptation === "contrast" || adaptation === "full") result.adaptation = adaptation;
   }
   return result;
 }
