@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Glass performance</title>
+<style>body{margin:0;background:#eceae5}</style>
+<script type="module">
+  import { attachGlass } from "/dist/index.js";
+  const wait = () => new Promise(resolve => requestAnimationFrame(resolve));
+  window.runBenchmark = async ({ count = 16, frames = 40 } = {}) => {
+    const source = document.createElement("canvas");
+    source.width = 960; source.height = 640;
+    const context = source.getContext("2d");
+    const hosts = [], surfaces = [];
+    for (let i = 0; i < count; i++) {
+      const host = document.createElement("div");
+      host.style.cssText = `position:absolute;left:${12 + i % 8 * 112}px;top:${12 + Math.floor(i / 8) * 86}px;width:96px;height:64px;border-radius:16px`;
+      document.body.append(host); hosts.push(host);
+      surfaces.push(attachGlass(host, { source, motion: { follow: 0, jelly: 0, glow: 0, press: 0, morph: 0 }, material: { frost: 0.7 } }));
+    }
+    await wait(); await wait();
+    const stats = { allocations: 0, uploads: 0, draws: 0, locations: 0 };
+    const proto = WebGL2RenderingContext.prototype;
+    const originals = {};
+    for (const [name, key] of Object.entries({ createTexture: "allocations", texImage2D: "uploads", drawArrays: "draws", getUniformLocation: "locations" })) {
+      originals[name] = proto[name];
+      proto[name] = function(...args) { stats[key]++; return originals[name].apply(this, args); };
+    }
+    const times = [];
+    let previous = performance.now();
+    try {
+      for (let frame = 0; frame < frames; frame++) {
+        context.fillStyle = `hsl(${frame * 7} 60% 60%)`;
+        context.fillRect(0, 0, 960, 640);
+        for (const surface of surfaces) surface.invalidate();
+        await wait(); await wait();
+        const now = performance.now(); times.push(now - previous); previous = now;
+      }
+      const idleDraws = stats.draws;
+      for (let frame = 0; frame < 5; frame++) await wait();
+      times.sort((a,b) => a-b);
+      return { count, frames, ...stats, idleDraws: stats.draws - idleDraws, p50ms: +times[Math.floor(times.length * 0.5)].toFixed(2), p95ms: +times[Math.floor(times.length * 0.95)].toFixed(2) };
+    } finally {
+      for (const [name, original] of Object.entries(originals)) proto[name] = original;
+      surfaces.forEach(surface => surface.destroy()); hosts.forEach(host => host.remove());
+    }
+  };
+</script>

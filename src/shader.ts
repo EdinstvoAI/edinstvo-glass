@@ -153,6 +153,9 @@ void main() {
   outColor = vec4(inside + spillColor * rest, mask + rest) * uAppear;
 }`;
 
+const weights = Array.from({ length: 9 }, (_, i) => Math.exp(-i * i / 18));
+const weightSum = weights[0] + 2 * weights.slice(1).reduce((a, b) => a + b, 0);
+
 export const blurFragment = `#version 300 es
 precision highp float;
 
@@ -163,13 +166,11 @@ out vec4 outColor;
 
 void main() {
   vec2 uv = gl_FragCoord.xy * uInvSize;
-  vec3 sum = vec3(0.0);
-  float total = 0.0;
-  for (int i = -8; i <= 8; i++) {
-    float x = float(i);
-    float weight = exp(-x * x / 18.0);
-    sum += textureLod(uSource, uv + uStep * x, uLod).rgb * weight;
-    total += weight;
-  }
-  outColor = vec4(sum / total, 1.0);
+  vec3 sum = textureLod(uSource, uv, uLod).rgb * ${(weights[0] / weightSum).toFixed(9)};
+  ${[1, 3, 5, 7].map(i => {
+    const weight = weights[i] + weights[i + 1];
+    const offset = i + weights[i + 1] / weight;
+    return `sum += (textureLod(uSource, uv + uStep * ${offset.toFixed(9)}, uLod).rgb + textureLod(uSource, uv - uStep * ${offset.toFixed(9)}, uLod).rgb) * ${(weight / weightSum).toFixed(9)};`;
+  }).join("\n  ")}
+  outColor = vec4(sum, 1.0);
 }`;
