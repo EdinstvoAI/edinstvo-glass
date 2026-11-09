@@ -4,7 +4,6 @@ import { cornerRadius, lightVector, softPeak, uvTransform } from "./geometry.js"
 import { type Motion, Shape, type ShapeBox, Spring, motionKeys, resolveMotion, still } from "./interaction.js";
 import { type MaterialLayer, type SceneLight, kebab, numericKeys, readValue, resolveMaterial, sceneLayer, stackLayers } from "./material.js";
 import { Renderer, maxShapes } from "./renderer.js";
-import { dragRotation, rotationPadding } from "./rotation.js";
 
 export interface GlassOptions {
   material?: MaterialLayer;
@@ -12,7 +11,6 @@ export interface GlassOptions {
   source?: GlassSource;
   live?: boolean;
   appear?: boolean;
-  rotatable?: boolean;
 }
 
 const pad = 32;
@@ -104,7 +102,6 @@ export class GlassSurface {
   private boxes = new Float32Array(maxShapes * 4);
   private forms = new Float32Array(maxShapes * 2);
   private layer = 0;
-  private rotationCleanup: (() => void) | null = null;
 
   constructor(private host: HTMLElement, private canvas: HTMLCanvasElement, private options: GlassOptions = {}, private group = false) {
     this.context = canvas.getContext("2d")!;
@@ -129,8 +126,6 @@ export class GlassSurface {
   }
 
   disconnect() {
-    this.rotationCleanup?.();
-    this.rotationCleanup = null;
     this.connected = false;
     surfaces.delete(this);
     this.resize.disconnect();
@@ -199,21 +194,6 @@ export class GlassSurface {
     const lightColor = style.getPropertyValue("--glass-light-color").trim();
     if (lightColor) tokens.lightColor = lightColor;
     this.material = resolveMaterial(stackLayers(scene, tokens as MaterialLayer, this.options.material));
-    if (this.options.rotatable && this.host.dataset.engine === "webgl" && !this.rotationCleanup) {
-      this.rotationCleanup = dragRotation(this.host, () => this.material, (angles) => {
-        this.host.setAttribute("rotation-x", angles.rotationX.toFixed(2));
-        this.host.setAttribute("rotation-y", angles.rotationY.toFixed(2));
-        this.set({ material: { ...this.options.material, ...angles } });
-        this.host.dispatchEvent(new CustomEvent("glass-rotate", { bubbles: true, detail: angles }));
-      });
-    } else if ((!this.options.rotatable || this.host.dataset.engine !== "webgl") && this.rotationCleanup) {
-      this.rotationCleanup();
-      this.rotationCleanup = null;
-    }
-    if (!this.group && this.host.dataset.engine === "webgl") {
-      const content = this.host.shadowRoot?.querySelector<HTMLElement>(".content");
-      if (content) content.style.transform = `rotateY(${this.material.rotationY}deg) rotateX(${this.material.rotationX}deg)`;
-    }
     this.layer = parseInt(style.zIndex) || 0;
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.tint = resolveTint(this.material.tint);
@@ -329,13 +309,10 @@ export class GlassSurface {
 
   private paint(source: Backdrop, rect: DOMRect, list: ShapeBox[]) {
     const dpr = Math.min(devicePixelRatio || 1, 2);
-    const minX = Math.min(...list.map((b) => b.x - b.halfW)), maxX = Math.max(...list.map((b) => b.x + b.halfW));
-    const minY = Math.min(...list.map((b) => b.y - b.halfH)), maxY = Math.max(...list.map((b) => b.y + b.halfH));
-    const padding = pad + (this.material.rotationX || this.material.rotationY ? rotationPadding(maxX - minX, maxY - minY, this.material.thickness, this.material.rotationX, this.material.rotationY) : 0);
-    const left = Math.floor(minX) - padding;
-    const top = Math.floor(minY) - padding;
-    const right = Math.ceil(maxX) + padding;
-    const bottom = Math.ceil(maxY) + padding;
+    const left = Math.floor(Math.min(...list.map((b) => b.x - b.halfW))) - pad;
+    const top = Math.floor(Math.min(...list.map((b) => b.y - b.halfH))) - pad;
+    const right = Math.ceil(Math.max(...list.map((b) => b.x + b.halfW))) + pad;
+    const bottom = Math.ceil(Math.max(...list.map((b) => b.y + b.halfH))) + pad;
     const frame = { left, top, right, bottom };
     const backdrop = this.layered(source, frame, dpr);
     const canvasW = Math.round((right - left) * dpr);
@@ -353,7 +330,6 @@ export class GlassSurface {
 
     const shade = this.host.shadowRoot?.querySelector<HTMLElement>(".shade");
     if (shade && list.length === 1) {
-      shade.hidden = Boolean(this.material.rotationX || this.material.rotationY || this.options.rotatable);
       const [box] = list;
       Object.assign(shade.style, {
         inset: "auto",
@@ -385,8 +361,7 @@ export class GlassSurface {
       backdrop,
       width: canvasW,
       height: canvasH,
-      pad: padding * dpr,
-      rotatable: Boolean(this.options.rotatable),
+      pad: pad * dpr,
       boxes: this.boxes,
       forms: this.forms,
       count: list.length,
@@ -408,12 +383,6 @@ export class GlassSurface {
   }
 
   private fallBack() {
-    this.rotationCleanup?.();
-    this.rotationCleanup = null;
-    const content = this.host.shadowRoot?.querySelector<HTMLElement>(".content");
-    if (content) content.style.transform = "";
-    const shade = this.host.shadowRoot?.querySelector<HTMLElement>(".shade");
-    if (shade) shade.hidden = false;
     this.host.dataset.engine = "css";
     for (const element of this.shapes.keys()) element.dataset.engine = "css";
     this.canvas.hidden = true;

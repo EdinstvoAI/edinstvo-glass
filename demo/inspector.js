@@ -5,17 +5,10 @@ export function inspectScene(root, controls) {
   const title = document.createElement("strong");
   const note = document.createElement("p");
   const editGroup = document.createElement("button");
-  const rotateLabel = document.createElement("label");
-  rotateLabel.className = "inspector-heading";
-  const rotate = Object.assign(document.createElement("input"), { type: "checkbox" });
-  rotateLabel.append(rotate, " Drag to rotate");
-  const resetRotation = document.createElement("button");
-  resetRotation.className = "inspector-heading";
-  resetRotation.textContent = "Reset rotation";
   title.setAttribute("aria-live", "polite");
   title.className = note.className = editGroup.className = "inspector-heading";
   editGroup.textContent = "Edit group material";
-  controls.append(title, note, editGroup, rotateLabel, resetRotation);
+  controls.append(title, note, editGroup);
   const inputs = new Map();
   const kebab = key => key.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`);
   const isMotion = key => key in motionRanges;
@@ -48,9 +41,6 @@ export function inspectScene(root, controls) {
     title.textContent = `Editing: ${selected.getAttribute("aria-label")}`;
     note.textContent = grouped() ? "Merged shapes share a material. Motion settings apply to this shape." : "Click a glass element to edit it.";
     editGroup.hidden = !grouped();
-    rotate.checked = selected.hasAttribute("rotatable") && selected.getAttribute("rotatable") !== "false";
-    rotate.disabled = grouped();
-    resetRotation.disabled = grouped();
     for (const [key, { input, output }] of inputs) {
       input.value = current[key] ?? defaults[key] ?? motionDefaults[key];
       output.value = Number(input.value).toFixed(2);
@@ -89,12 +79,5 @@ export function inspectScene(root, controls) {
     if (element && root.contains(element)) select(element);
   });
   editGroup.addEventListener("click", () => { const group = parentGroup(); if (group) select(group); });
-  rotate.addEventListener("change", () => selected.toggleAttribute("rotatable", rotate.checked));
-  resetRotation.addEventListener("click", () => {
-    selected.setAttribute("rotation-x", "0");
-    selected.setAttribute("rotation-y", "0");
-    refresh();
-  });
-  root.addEventListener("glass-rotate", refresh);
   select(root.querySelector("#card"));
 }

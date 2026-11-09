@@ -3,7 +3,6 @@ import { test } from "node:test";
 import { cornerRadius, fitBox, lightVector, softPeak, uvTransform } from "../dist/geometry.js";
 import { Spring, motionDefaults, resolveMotion } from "../dist/interaction.js";
 import { defaults, numericKeys, ranges, readValue, resolveMaterial, sceneLayer, stackLayers } from "../dist/material.js";
-import { rotationPadding } from "../dist/rotation.js";
 
 test("later layers win and values stay in range", () => {
   const material = resolveMaterial(defaults, { frost: 4, refraction: -1, depth: Number.NaN });
@@ -21,30 +20,6 @@ test("thickness inherits independently and accepts local overrides", () => {
   const material = resolveMaterial({ thickness: 0.8, refraction: 0.4 }, { thickness: "inherit", refraction: 0.7 });
   assert.equal(material.thickness, 0.8);
   assert.equal(material.refraction, 0.7);
-});
-
-test("rotation is optional and each axis inherits independently", () => {
-  assert.equal(defaults.rotationX, 0);
-  assert.equal(defaults.rotationY, 0);
-  const material = resolveMaterial({ rotationX: 25, rotationY: 40 }, { rotationX: "inherit", rotationY: -120 });
-  assert.equal(material.rotationX, 25);
-  assert.equal(material.rotationY, -80);
-  assert.equal(resolveMaterial(material, { rotationX: "default" }).rotationX, 0);
-});
-
-test("rotated volume padding contains every projected corner", () => {
-  const width = 100, height = 240, thickness = 96;
-  for (const x of [-80, -40, 0, 40, 80]) for (const y of [-80, -40, 0, 40, 80]) {
-    const padding = rotationPadding(width, height, thickness, x, y);
-    const a = x * Math.PI / 180, b = y * Math.PI / 180;
-    for (const px of [-width / 2, width / 2]) for (const py of [-height / 2, height / 2]) for (const pz of [-thickness / 2, thickness / 2]) {
-      const rx = Math.cos(b) * px + Math.sin(b) * (Math.sin(a) * py + Math.cos(a) * pz);
-      const ry = Math.cos(a) * py - Math.sin(a) * pz;
-      assert.ok(Math.abs(rx) <= width / 2 + padding + 1e-8);
-      assert.ok(Math.abs(ry) <= height / 2 + padding + 1e-8);
-    }
-  }
-  assert.equal(rotationPadding(width, height, thickness, 0, 0), 0);
 });
 
 test("a child can opt out of merging", () => {

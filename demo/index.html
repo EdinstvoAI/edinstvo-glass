@@ -14,11 +14,9 @@
   .blob { position: absolute; top: 15px; width: 80px; height: 80px; border-radius: 40px; box-shadow: none; touch-action: none; cursor: grab; transition: none; }
   .blob.open { width: 200px; height: 110px; top: 0; border-radius: 28px; }
   #controls { position: fixed; top: 16px; right: 16px; display: grid; grid-template-columns: auto 140px 36px; gap: 4px 8px; padding: 12px; background: #000c; color: #fff; border-radius: 8px; font-size: 12px; align-items: center; }
-  [data-selected] { outline: 2px dashed #fff; outline-offset: 7px; }
+  [data-selected] { outline: 2px solid #fff; outline-offset: 7px; }
   .inspector-heading { grid-column: 1 / -1; margin: 0; max-width: 300px; }
   #controls input:disabled { opacity: 0.35; }
-  [rotatable] { cursor: grab; }
-  [rotatable]:active { cursor: grabbing; }
   #controls { max-height: calc(100vh - 56px); overflow-y: auto; }
 </style>
 <canvas id="scene"></canvas>
@@ -65,7 +63,7 @@
 
   for (const blob of document.querySelectorAll(".blob")) {
     let from = null;
-    blob.addEventListener("pointerdown", (e) => { if (blob.closest("[rotatable]")) return; from = [e.clientX - blob.offsetLeft, e.clientY - blob.offsetTop, e.clientX]; blob.setPointerCapture(e.pointerId); });
+    blob.addEventListener("pointerdown", (e) => { from = [e.clientX - blob.offsetLeft, e.clientY - blob.offsetTop, e.clientX]; blob.setPointerCapture(e.pointerId); });
     blob.addEventListener("pointermove", (e) => { if (from) { blob.style.left = `${e.clientX - from[0]}px`; blob.style.top = `${e.clientY - from[1]}px`; } });
     blob.addEventListener("pointerup", (e) => { if (from && Math.abs(e.clientX - from[2]) < 4) blob.classList.toggle("open"); from = null; });
   }

@@ -1,8 +1,6 @@
 export interface Material {
   thickness: number;
   strokeThickness: number;
-  rotationX: number;
-  rotationY: number;
   bloom: number;
   light: number;
   glint: number;
@@ -38,8 +36,6 @@ export interface SceneLight {
 export const ranges: Record<NumericKey, readonly [number, number]> = {
   thickness: [0, 96],
   strokeThickness: [0, 8],
-  rotationX: [-80, 80],
-  rotationY: [-80, 80],
   bloom: [0, 1],
   light: [0, 1],
   glint: [0, 1],
@@ -60,7 +56,7 @@ export const ranges: Record<NumericKey, readonly [number, number]> = {
 
 export const numericKeys = Object.keys(ranges) as NumericKey[];
 
-export const defaults: Material = { thickness: 6, strokeThickness: 1, rotationX: 0, rotationY: 0, bloom: 0.2, light: 0.3, glint: 0, rim: 0.35, lift: 0.15, lightAngle: -45, transparency: 0.85, refraction: 0.3, depth: 6, dispersion: 0.2, frost: 0.7, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0 };
+export const defaults: Material = { thickness: 6, strokeThickness: 1, bloom: 0.2, light: 0.3, glint: 0, rim: 0.35, lift: 0.15, lightAngle: -45, transparency: 0.85, refraction: 0.3, depth: 6, dispersion: 0.2, frost: 0.7, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0 };
 
 export const clampValue = (key: NumericKey, value: number) => {
   const [min, max] = ranges[key];
