@@ -18,11 +18,21 @@
 | Layer accumulation used an ordinary object | `__proto__` could affect the accumulated layer's prototype | Use an object without a prototype |
 | Development server exposed repository paths on all interfaces | Local metadata could be served to the network | Loopback by default; allow only public demo/build/test assets; reject private paths and escaping symlinks |
 | Malformed URI or disappearing file | Development server could terminate | Return an error or close the response without crashing |
+| Auto backdrop used the topmost panel | Glass under the inspector could turn into an opaque white patch | Inspect only elements below the glass in hit-test order |
+| Center point outside the viewport | Partly visible glass could lose its real backdrop | Clamp the discovery point to the visible viewport |
+| Eight-composition frame budget | Ninth and later overlapping surfaces could omit lower glass | Remove the silent correctness cutoff; test ten overlapping surfaces |
+| Adaptive targets changed instantly | Visible jumps in tint, blur, transparency and foreground | Frame-rate-independent transitions, reduced-motion handling and automatic settling |
+| Full adaptation could replace the material appearance | Glass could become too dense or frosted | Bound ordinary full-mode changes; retain strict contrast and accessibility overrides |
+| Adaptive contrast target recomputed during every animation frame | Repeated sampling math while only interpolation was needed | Cache the target until input material or analysis changes |
+| Dispersion CSS mode was not read | CSS and attribute configuration could disagree | Read the validated CSS token and test it through the renderer |
+| Blur resizing bypassed budget trimming; color cache was unbounded | Cached memory could grow unexpectedly | Trim resized entries and bound color parsing to 256 LRU entries |
+| File URL path conversion | Local servers could fail in paths with spaces or on Windows | Use native file URL conversion; native Windows execution remains unverified |
 
 ## Checks
 
-- 22 automated core and development-server checks pass.
-- 23 browser checks pass in Chrome at DPR 1 and DPR 2, including source capture, fallback, adaptation, SVG holes, cached fields and optical displacement.
+- 23 automated core and development-server checks pass.
+- Browser coverage includes 30 rendering checks: source ordering, clipping, ten-layer composition, transition settling, fallback, adaptation, SVG fields and optical displacement. Final results are collected at DPR 1 and DPR 2.
+- Documentation has four build checks for English/Russian topics, internal links, LLM text and script syntax. Its interactive examples, selected-shape editing, photo upload and reset were also checked in Chrome.
 - Merged normal jumps: 7/255 at DPR 1 and 4/255 at DPR 2 in the deep-surface fixture; regression threshold 32/255.
 - Deep capsule displacement: maximum neighbor jump 2/255, mirror error 1/255 at both tested DPR values.
 - `ior=1` produces no geometric refraction in the diagnostic buffer.
@@ -36,5 +46,5 @@
 - Text contrast is estimated from sparse background samples before final optical effects. Audit final text independently.
 - Custom geometry leaves rectangular DOM layout/hit testing and does not automatically clip arbitrary HTML content.
 - Local checks ran in Chrome; new Safari, Firefox and Windows results have not been collected in this session. Existing browser CI contains the new regression checks.
-- README documents the new APIs. Site documentation and its visual update were not written: automatic approval review for the separate `edinstvo-glass-site` folder failed with HTTP 403. The site repository remains unchanged.
+- README and the separate `edinstvo-glass-site` repository document the new APIs. The earlier approval-service failure was resolved by preparing, testing and applying a scoped patch. Development-only APIs are explicitly marked as unreleased.
 - Changes are in `Dev`; the new APIs have not been published to npm in this session.
