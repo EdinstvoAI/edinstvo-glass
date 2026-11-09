@@ -23,6 +23,7 @@ export interface DrawJob {
   lightColor: readonly [number, number, number];
   tint: readonly [number, number, number];
   material: Material;
+  rotatable?: boolean;
 }
 
 const uniformNames = ["uBoxes", "uForms", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uLightColor", "uLightSoftness", "uLightDiffusion", "uReflection", "uFlow", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uPeak", "uAppear", "uLight", "uTransparency", "uThickness", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
@@ -47,6 +48,8 @@ export class Renderer {
   private gl!: WebGL2RenderingContext;
   private uniforms = {} as Record<(typeof uniformNames)[number], WebGLUniformLocation | null>;
   private strokeUniform: WebGLUniformLocation | null = null;
+  private rotationUniform: WebGLUniformLocation | null = null;
+  private rotatableUniform: WebGLUniformLocation | null = null;
   private textures = new Map<GlassImage, Texture>();
   private frame = 0;
   private lens!: WebGLProgram;
@@ -104,6 +107,8 @@ export class Renderer {
     gl.uniform1i(gl.getUniformLocation(lens, "uFrosted"), 1);
     for (const name of uniformNames) this.uniforms[name] = gl.getUniformLocation(lens, name);
     this.strokeUniform = gl.getUniformLocation(lens, "uStrokeThickness");
+    this.rotationUniform = gl.getUniformLocation(lens, "uRotation");
+    this.rotatableUniform = gl.getUniformLocation(lens, "uRotatable");
     return true;
   }
 
@@ -255,6 +260,8 @@ export class Renderer {
     gl.uniform1f(u.uTransparency, m.transparency);
     gl.uniform1f(u.uThickness, m.thickness);
     gl.uniform1f(this.strokeUniform, m.strokeThickness);
+    gl.uniform2f(this.rotationUniform, m.rotationX * Math.PI / 180, m.rotationY * Math.PI / 180);
+    gl.uniform1i(this.rotatableUniform, job.rotatable ? 1 : 0);
     gl.uniform1f(u.uRefraction, m.refraction);
     gl.uniform1f(u.uDepth, m.depth);
     gl.uniform1f(u.uDispersion, m.dispersion);

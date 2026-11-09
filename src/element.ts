@@ -57,7 +57,7 @@ const css = `
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["source", "live", "tint", "light-color", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "light-color", "appear", "layer", "rotatable", ...motionKeys, ...materialAttributes.keys()];
 
   protected surface: GlassSurface;
   private group: EdinstvoGlassGroup | null = null;
@@ -172,6 +172,7 @@ export class EdinstvoGlass extends Base {
       source: this.source,
       live: live === null ? undefined : live !== "false",
       appear: this.hasAttribute("appear"),
+      rotatable: this.hasAttribute("rotatable") && this.getAttribute("rotatable") !== "false",
     });
   }
 

@@ -43,11 +43,17 @@
     await import("/dist/define.js");
     await wait(1200);
     check("glass stays on webgl", !webgl || document.querySelector("#page edinstvo-glass").dataset.engine === "webgl");
+    if (webgl) {
+      const { checkRotation } = await import("/test/rotation.js");
+      await checkRotation(check, wait);
+    }
   } catch (reason) { error = String(reason); }
   try {
     const decode = HTMLImageElement.prototype.decode;
     HTMLImageElement.prototype.decode = () => Promise.reject(new Error("refused"));
     const glass = document.createElement("edinstvo-glass");
+    glass.setAttribute("rotatable", "");
+    glass.setAttribute("rotation-y", "20");
     const target = document.createElement("div");
     target.id = "refused"; target.className = "box"; target.textContent = "x";
     document.body.append(target);
@@ -57,6 +63,8 @@
     await wait(1200);
     HTMLImageElement.prototype.decode = decode;
     check("falls back to css when refused", glass.dataset.engine === "css");
+    check("css fallback releases rotation gestures", glass.style.touchAction === "");
+    check("css fallback clears content tilt", glass.shadowRoot.querySelector(".content").style.transform === "");
   } catch (reason) { error ??= String(reason); }
   window.result = { agent: navigator.userAgent, webgl, notes, checks, error };
   await fetch("/result", { method: "POST", body: JSON.stringify(window.result) });
