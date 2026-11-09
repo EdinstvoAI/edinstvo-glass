@@ -88,7 +88,7 @@ export function sceneLayer(light: SceneLight): MaterialLayer {
 }
 
 export function stackLayers(...layers: (MaterialLayer | undefined)[]) {
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null);
   for (const layer of layers) {
     for (const [key, value] of Object.entries(layer ?? {})) {
       if (value !== undefined && value !== "inherit") result[key] = value;

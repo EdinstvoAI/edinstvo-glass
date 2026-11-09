@@ -13,7 +13,7 @@ export function parseColor(color: string): Rgba {
   probe.fillStyle = color;
   probe.fillRect(0, 0, 1, 1);
   const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data;
-  const rgba: Rgba = a ? [r / a, g / a, b / a, a / 255] : [0, 0, 0, 0];
+  const rgba: Rgba = a ? [r / 255, g / 255, b / 255, a / 255] : [0, 0, 0, 0];
   cache.set(color, rgba);
   return rgba;
 }

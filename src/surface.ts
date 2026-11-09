@@ -1,7 +1,8 @@
 import { type Backdrop, type GlassSource, resolveBackdrop } from "./backdrop.js";
 import { resolveTint, prefersDark } from "./color.js";
 import { BackdropAnalyzer, adaptiveMaterial } from "./adaptation.js";
-import { cornerRadius, lightVector, softPeak, uvTransform } from "./geometry.js";
+import { cornerRadius, lightVector, softPeak, uvTransform, readGeometry, shapeCodes, type GeometryLayer } from "./geometry.js";
+import { GeometryAtlas } from "./distance-field.js";
 import { type Motion, Shape, type ShapeBox, Spring, motionKeys, resolveMotion, still } from "./interaction.js";
 import { type MaterialLayer, type SceneLight, kebab, numericKeys, readValue, resolveMaterial, sceneLayer, stackLayers } from "./material.js";
 import { Renderer, maxShapes } from "./renderer.js";
@@ -12,6 +13,7 @@ export interface GlassOptions {
   source?: GlassSource;
   live?: boolean;
   appear?: boolean;
+  geometry?: GeometryLayer;
 }
 
 const pad = 32;
@@ -108,7 +110,8 @@ export class GlassSurface {
   private appear = new Spring(1, 120, 15);
   private settle: (() => void) | null = null;
   private boxes = new Float32Array(maxShapes * 4);
-  private forms = new Float32Array(maxShapes * 2);
+  private forms = new Float32Array(maxShapes * 4);
+  private geometryAtlas: GeometryAtlas | null = null;
   private layer = 0;
   private analyzer: BackdropAnalyzer | null = null;
   private moreContrast = false;
@@ -233,6 +236,8 @@ export class GlassSurface {
       const { element } = shape;
       shape.motion = this.reduced ? still : element === this.host ? base : resolveMotion(base, readMotion(element));
       shape.radius = cornerRadius(getComputedStyle(element).borderTopLeftRadius, element.offsetWidth, element.offsetHeight);
+      shape.geometry = readGeometry(element, this.options.geometry);
+      shape.aspect = element.offsetWidth / Math.max(1, element.offsetHeight);
     }
     this.invalidate();
   }
@@ -373,6 +378,8 @@ export class GlassSurface {
     const shade = this.host.shadowRoot?.querySelector<HTMLElement>(".shade");
     if (shade && list.length === 1) {
       const [box] = list;
+      shade.hidden = box.geometry.shape === "path" || box.geometry.shape === "superellipse";
+      shade.style.borderRadius = box.geometry.shape === "circle" || box.geometry.shape === "ellipse" ? "50%" : "";
       Object.assign(shade.style, {
         inset: "auto",
         left: `${box.x - box.halfW - rect.left}px`,
@@ -380,14 +387,20 @@ export class GlassSurface {
         width: `${box.halfW * 2}px`,
         height: `${box.halfH * 2}px`,
       });
+      if (box.geometry.shape === "circle") {
+        const half = Math.min(box.halfW, box.halfH);
+        Object.assign(shade.style, { left: `${box.x - half - rect.left}px`, top: `${box.y - half - rect.top}px`, width: `${half * 2}px`, height: `${half * 2}px` });
+      }
     }
 
     let peak = Infinity;
     list.forEach((box, index) => {
       this.boxes.set([(box.x - left) * dpr, (box.y - top) * dpr, box.halfW * dpr, box.halfH * dpr], index * 4);
-      this.forms.set([box.radius * dpr, box.join * dpr], index * 2);
-      peak = Math.min(peak, softPeak(box.halfW, box.halfH, box.radius) * dpr);
+      const geometry = box.geometry;
+      this.forms.set([box.radius * dpr, box.join * dpr, shapeCodes[geometry.shape], geometry.shape === "path" ? box.aspect : geometry.curvature], index * 4);
+      peak = Math.min(peak, (geometry.shape === "rounded-rect" ? softPeak(box.halfW, box.halfH, box.radius) : Math.min(box.halfW, box.halfH)) * dpr);
     });
+    const paths = list.some(box => box.geometry.shape === "path") ? (this.geometryAtlas ??= new GeometryAtlas()).update(list) : undefined;
 
     const shape = this.active();
     const follow = shape?.motion.follow ?? 0;
@@ -406,6 +419,7 @@ export class GlassSurface {
       pad: pad * dpr,
       boxes: this.boxes,
       forms: this.forms,
+      paths,
       count: list.length,
       peak: Math.max(peak, 1),
       appear: Math.max(this.appear.value, 0),

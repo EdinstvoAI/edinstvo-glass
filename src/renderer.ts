@@ -1,6 +1,7 @@
 import type { Backdrop, GlassImage } from "./backdrop.js";
 import type { Material } from "./material.js";
 import { blurFragment, fragment, vertex } from "./shader.js";
+import type { PathField } from "./distance-field.js";
 
 export const maxShapes = 64;
 
@@ -23,6 +24,7 @@ export interface DrawJob {
   lightColor: readonly [number, number, number];
   tint: readonly [number, number, number];
   material: Material;
+  paths?: PathField;
 }
 
 const uniformNames = ["uBoxes", "uForms", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uLightColor", "uLightSoftness", "uLightDiffusion", "uReflection", "uFlow", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uPeak", "uAppear", "uLight", "uTransparency", "uThickness", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
@@ -51,6 +53,9 @@ export class Renderer {
   private blurUniforms = {} as Record<"uStep" | "uInvSize" | "uLod", WebGLUniformLocation | null>;
   private downsample = document.createElement("canvas");
   private textureLimit = maxTextureSide;
+  private pathUniform: WebGLUniformLocation | null = null;
+  private pathTextures = new Map<PathField, { texture: WebGLTexture; version: number }>();
+  private emptyPath!: WebGLTexture;
   private textures = new Map<GlassImage, Texture>();
   private frame = 0;
   private lens!: WebGLProgram;
@@ -70,6 +75,7 @@ export class Renderer {
     this.canvas.addEventListener("webglcontextrestored", () => {
       this.lost = false;
       this.textures.clear();
+      this.pathTextures.clear();
       this.compile();
       this.onRestore?.();
     });
@@ -108,6 +114,11 @@ export class Renderer {
     gl.useProgram(lens);
     gl.uniform1i(gl.getUniformLocation(lens, "uBackdrop"), 0);
     gl.uniform1i(gl.getUniformLocation(lens, "uFrosted"), 1);
+    gl.uniform1i(gl.getUniformLocation(lens, "uPathField"), 2);
+    this.pathUniform = gl.getUniformLocation(lens, "uPathGrid");
+    gl.activeTexture(gl.TEXTURE2);
+    this.emptyPath = this.target(1, 1);
+    gl.activeTexture(gl.TEXTURE0);
     for (const name of uniformNames) this.uniforms[name] = gl.getUniformLocation(lens, name);
     this.strokeUniform = gl.getUniformLocation(lens, "uStrokeThickness");
     for (const name of ["uStep", "uInvSize", "uLod"] as const) this.blurUniforms[name] = gl.getUniformLocation(blur, name);
@@ -196,6 +207,35 @@ export class Renderer {
     this.frame++;
   }
 
+  private bindPaths(field?: PathField) {
+    const { gl } = this;
+    gl.activeTexture(gl.TEXTURE2);
+    if (!field) {
+      gl.bindTexture(gl.TEXTURE_2D, this.emptyPath);
+      gl.uniform2f(this.pathUniform, 1, 1);
+    } else {
+      let entry = this.pathTextures.get(field);
+      if (!entry) {
+        entry = { texture: this.target(field.width, field.height), version: -1 };
+        this.pathTextures.set(field, entry);
+      } else { this.pathTextures.delete(field); this.pathTextures.set(field, entry); }
+      gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+      if (entry.version !== field.version) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, field.width, field.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, field.pixels);
+        entry.version = field.version;
+      }
+      gl.uniform2f(this.pathUniform, field.columns, field.rows);
+      let bytes = [...this.pathTextures.keys()].reduce((sum, path) => sum + path.width * path.height * 4, 0);
+      for (const [path, old] of this.pathTextures) {
+        if (this.pathTextures.size <= 4 && bytes <= 32 * 1024 * 1024) break;
+        if (path === field) continue;
+        gl.deleteTexture(old.texture); this.pathTextures.delete(path);
+        bytes -= path.width * path.height * 4;
+      }
+    }
+    gl.activeTexture(gl.TEXTURE0);
+  }
+
   private shrink(backdrop: Backdrop): TexImageSource {
     const limit = this.textureLimit;
     const scale = limit / Math.max(backdrop.width, backdrop.height);
@@ -242,6 +282,7 @@ export class Renderer {
     if (this.lost) return;
     const { gl, canvas, uniforms: u } = this;
     const { width, height, material: m } = job;
+    this.bindPaths(job.paths);
     if (canvas.width < width || canvas.height < height) {
       canvas.width = Math.max(canvas.width, width);
       canvas.height = Math.max(canvas.height, height);
@@ -263,7 +304,7 @@ export class Renderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.uniform2f(u.uCanvas, width, height);
     gl.uniform4fv(u.uBoxes, job.boxes);
-    gl.uniform2fv(u.uForms, job.forms);
+    gl.uniform4fv(u.uForms, job.forms);
     gl.uniform1i(u.uCount, job.count);
     gl.uniform1f(u.uPeak, job.peak);
     gl.uniform1f(u.uAppear, job.appear);

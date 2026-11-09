@@ -116,3 +116,35 @@ The engine samples a 12×12 crop of the supplied backdrop at most once per 150 m
 Contrast modes target 4.5:1 for sampled colors, or 7:1 with `prefers-contrast: more`, using the [W3C relative luminance and contrast definition](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). This is an estimate before optical distortion, lighting and final text rendering, not a WCAG compliance guarantee. Manual colors or reduced adaptation strength may prevent the target from being reached. `data-glass-contrast` reports the sampled estimate. Audit the rendered interface separately.
 
 `prefers-reduced-transparency: reduce` lowers transparency in contrast modes. Forced colors hide the optical canvas and use system colors in web components. Neither preference starts a continuous animation loop.
+
+## Surface geometry
+
+```html
+<edinstvo-glass shape="ellipse" style="width:240px;height:120px"></edinstvo-glass>
+<edinstvo-glass shape="superellipse" curvature="5"></edinstvo-glass>
+<edinstvo-glass shape="path" path="M50 0L100 100H0Z" view-box="0 0 100 100"></edinstvo-glass>
+```
+
+```js
+const surface = attachGlass(element, {
+  geometry: { shape: "path", path: "M50 0L100 100H0Z", viewBox: [0, 0, 100, 100] },
+  material: { refraction: 0.4, depth: 12 },
+});
+surface.set({ geometry: { shape: "ellipse" } });
+```
+
+| Shape | Geometry |
+| --- | --- |
+| `rounded-rect` | CSS corner radius; existing default |
+| `circle` | A circle inscribed in the shorter side of the element |
+| `ellipse` | An ellipse spanning the element's width and height |
+| `superellipse` | A continuous profile; `curvature` ranges from 2 (ellipse) to 8 |
+| `path` | SVG path data mapped from `viewBox` into the element bounds |
+
+Geometry changes the shader outline and its normals, so refraction, dispersion, rim, light and reflection follow that shape. It also participates in the existing group merging and layer composition. Set a web component's `.geometry` property to a new object to update it; geometry does not add a second renderer or context.
+
+Paths accept path data only, not SVG markup, scripts or external resources. Use `fill-rule="evenodd"` or `geometry.fillRule` for alternate hole filling. Limits are 64 KiB of path data, 4096 commands and finite coordinates within ±1,000,000. Invalid markup is rejected by the property API; invalid attributes use the default outline with a console warning. Invalid native path syntax uses the view box. Limits bound input size, not the runtime of every browser's native path rasterizer.
+
+Each custom outline is baked into a 256×256 signed distance tile. Raw and smoothed distances use 16-bit packed channels. Tiles share a per-surface atlas; only geometry changes rebuild it, and normal interaction reuses its GPU texture. GPU atlas caching targets at most four atlases and 32 MiB, excluding one active atlas if necessary. The distance transform follows the linear-time [Felzenszwalb–Huttenlocher method](https://cs.brown.edu/people/pfelzens/papers/dt-final.pdf).
+
+Ellipses and superellipses use distance approximations. Small SVG details, highly concave paths, large elements and extreme aspect changes may reveal sampling or normal-field artifacts. Geometry controls the optical canvas; HTML layout and hit testing stay rectangular, and custom HTML content is not automatically clipped to a path. Custom paths have no automatic box shadow. CSS fallback uses the ordinary rounded rectangle rather than reproducing arbitrary path optics.

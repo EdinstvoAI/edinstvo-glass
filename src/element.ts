@@ -2,6 +2,7 @@ import type { GlassSource } from "./backdrop.js";
 import { motionKeys } from "./interaction.js";
 import { type MaterialLayer, kebab, numericKeys, readValue, stackLayers } from "./material.js";
 import { GlassSurface, placeCanvas, readMotion } from "./surface.js";
+import { readGeometry, resolveGeometry, type GeometryLayer } from "./geometry.js";
 
 const Base = (globalThis.HTMLElement ?? class {}) as typeof HTMLElement;
 
@@ -63,7 +64,7 @@ const css = `
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["source", "live", "tint", "light-color", "adaptation", "foreground", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "light-color", "adaptation", "foreground", "shape", "curvature", "path", "view-box", "fill-rule", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
 
   protected surface: GlassSurface;
   private group: EdinstvoGlassGroup | null = null;
@@ -72,6 +73,7 @@ export class EdinstvoGlass extends Base {
   private ready = false;
   private sourceValue: GlassSource | undefined;
   private materialValue: MaterialLayer | undefined;
+  private geometryValue: GeometryLayer | undefined;
 
   constructor() {
     super();
@@ -159,6 +161,13 @@ export class EdinstvoGlass extends Base {
     return this.materialValue ?? {};
   }
 
+  get geometry(): GeometryLayer { return this.geometryValue ?? {}; }
+  set geometry(value: GeometryLayer) {
+    resolveGeometry(value);
+    this.geometryValue = { ...value, ...(value.viewBox ? { viewBox: [...value.viewBox] as [number, number, number, number] } : {}) };
+    if (this.ready) this.place();
+  }
+
   set material(value: MaterialLayer) {
     this.materialValue = value;
     this.sync();
@@ -174,6 +183,7 @@ export class EdinstvoGlass extends Base {
     if (layer !== null) this.style.zIndex = layer;
     this.surface.set({
       material: this.composeMaterial(),
+      geometry: readGeometry(this),
       motion: this.parentGroup ? readMotion(this.parentGroup) : undefined,
       source: this.source,
       live: live === null ? undefined : live !== "false",

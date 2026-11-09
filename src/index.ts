@@ -3,3 +3,4 @@ export { GlassSurface, attachGlass, setSceneLight, setSceneMaterial, type GlassO
 export { type Material, type MaterialLayer, type SceneLight, defaults, ranges, resolveMaterial } from "./material.js";
 export { type Motion, motionDefaults, motionRanges, resolveMotion } from "./interaction.js";
 export type { GlassImage, GlassSource } from "./backdrop.js";
+export { geometryDefaults, resolveGeometry, type Geometry, type GeometryLayer, type GlassShape } from "./geometry.js";

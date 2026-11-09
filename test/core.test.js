@@ -4,6 +4,8 @@ import { cornerRadius, fitBox, lightVector, softPeak, uvTransform } from "../dis
 import { Spring, motionDefaults, resolveMotion } from "../dist/interaction.js";
 import { defaults, numericKeys, ranges, readValue, resolveMaterial, sceneLayer, stackLayers } from "../dist/material.js";
 import { adaptiveMaterial, contrast, luminance } from "../dist/adaptation.js";
+import { resolveGeometry } from "../dist/geometry.js";
+import { distanceTransform } from "../dist/distance-field.js";
 
 test("later layers win and values stay in range", () => {
   const material = resolveMaterial(defaults, { frost: 4, refraction: -1, depth: Number.NaN });
@@ -14,6 +16,29 @@ test("later layers win and values stay in range", () => {
 
 test("defaults sit inside the ranges", () => {
   for (const key of numericKeys) assert.ok(defaults[key] >= ranges[key][0] && defaults[key] <= ranges[key][1], key);
+});
+
+test("distance fields match exhaustive Euclidean distances", () => {
+  const width = 7, height = 6;
+  const mask = Uint8Array.from({ length: width * height }, (_, i) => i % 7 === 2 || i === 31 ? 255 : 0);
+  for (const inside of [true, false]) {
+    const field = distanceTransform(mask, width, height, inside);
+    for (let i = 0; i < mask.length; i++) {
+      let expected = Infinity;
+      for (let j = 0; j < mask.length; j++) if ((mask[j] >= 128) === inside) expected = Math.min(expected, (i % width - j % width) ** 2 + (Math.floor(i / width) - Math.floor(j / width)) ** 2);
+      assert.equal(field[i], expected);
+    }
+  }
+});
+
+test("geometry rejects markup and unbounded paths without accepting prototype keys", () => {
+  assert.equal(resolveGeometry({ shape: "constructor" }).shape, "rounded-rect");
+  assert.equal(resolveGeometry({ curvature: 100 }).curvature, 8);
+  assert.deepEqual(resolveGeometry({ viewBox: [0, 0, -1, 1] }).viewBox, [0, 0, 100, 100]);
+  for (const path of ["<svg onload=alert(1)>", "M1e999 0", "M".repeat(65537), "M0 0 ".repeat(4097)]) assert.throws(() => resolveGeometry({ shape: "path", path }));
+  const layers = stackLayers(JSON.parse('{"__proto__":{"polluted":true}}'), { frost: 0.2 });
+  assert.equal(Object.getPrototypeOf(layers), null);
+  assert.equal({}.polluted, undefined);
 });
 
 test("adaptive contrast covers the sampled extremes without changing the material", () => {

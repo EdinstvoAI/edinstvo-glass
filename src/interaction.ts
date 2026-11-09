@@ -1,3 +1,5 @@
+import { geometryDefaults, type Geometry } from "./geometry.js";
+
 export interface Motion {
   follow: number;
   press: number;
@@ -69,7 +71,7 @@ export class Spring {
 const liquid = () => new Spring(0, 190, 15);
 const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
 
-export interface ShapeBox { x: number; y: number; halfW: number; halfH: number; radius: number; join: number }
+export interface ShapeBox { x: number; y: number; halfW: number; halfH: number; radius: number; join: number; geometry: Geometry; aspect: number }
 
 export class Shape {
   x = liquid();
@@ -83,6 +85,8 @@ export class Shape {
   touchX = 0;
   touchY = 0;
   radius = 0;
+  geometry: Geometry = geometryDefaults;
+  aspect = 1;
   placed = false;
   motion: Motion = motionDefaults;
   private springs = [this.x, this.y, this.w, this.h, this.pointerX, this.pointerY, this.held, this.glow];
@@ -192,6 +196,6 @@ export class Shape {
     const halfW = Math.max(this.w.value, 0) / 2 * swell * (1 + pull + squash) * scale;
     const halfH = Math.max(this.h.value, 0) / 2 * swell * (1 - pull - squash) * scale;
     this.element.style.setProperty("--glass-scale", swell.toFixed(4));
-    return { x: this.x.value, y: this.y.value, halfW, halfH, radius: Math.min(this.radius, halfW, halfH), join: merge };
+    return { x: this.x.value, y: this.y.value, halfW, halfH, radius: Math.min(this.radius, halfW, halfH), join: merge, geometry: this.geometry, aspect: this.aspect };
   }
 }

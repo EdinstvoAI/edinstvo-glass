@@ -46,6 +46,8 @@
     if (webgl) {
       const { checkAdaptation } = await import("/test/adaptation.js");
       await checkAdaptation(check, wait);
+      const { checkGeometry } = await import("/test/geometry.js");
+      await checkGeometry(check, wait);
     }
   } catch (reason) { error = String(reason); }
   try {

@@ -10,9 +10,10 @@ precision highp float;
 const int MAX_SHAPES = 64;
 const float SOFTNESS = 2.7;
 
-uniform sampler2D uBackdrop, uFrosted;
+uniform sampler2D uBackdrop, uFrosted, uPathField;
 uniform vec4 uBoxes[MAX_SHAPES];
-uniform vec2 uForms[MAX_SHAPES];
+uniform vec4 uForms[MAX_SHAPES];
+uniform vec2 uPathGrid;
 uniform int uCount;
 uniform vec2 uCanvas, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint, uTouch, uLightColor;
@@ -35,6 +36,32 @@ float blend(float a, float b, float k) {
   return min(a, b) - h * h * k * 0.25;
 }
 
+vec2 shapeDistance(vec2 p, vec2 b, int index) {
+  float kind = uForms[index].z;
+  if (kind < 0.5) return vec2(roundedBox(p, b, uForms[index].x), 0.0);
+  if (kind > 3.5) { float d = length(p) - min(b.x, b.y); return vec2(d, -d); }
+  if (kind > 2.5) {
+    float aspect = max(uForms[index].w, 0.001);
+    vec2 local = p / b * vec2(min(1.0, aspect), min(1.0, 1.0 / aspect)) * 126.0 + 128.0;
+    vec2 safe = clamp(local, vec2(0.5), vec2(255.5));
+    vec2 cell = vec2(mod(float(index), uPathGrid.x), floor(float(index) / uPathGrid.x));
+    vec4 fieldValue = texture(uPathField, (cell * 256.0 + safe) / (uPathGrid * 256.0));
+    float scale = max(b.x, b.y) / 126.0;
+    float extra = length(local - safe) * scale;
+    float raw = (dot(fieldValue.rg, vec2(65280.0, 255.0)) / 65535.0 * 1024.0 - 512.0) * scale + extra;
+    float smoothDistance = (dot(fieldValue.ba, vec2(65280.0, 255.0)) / 65535.0 * 1024.0 - 512.0) * scale + extra;
+    return vec2(raw, -smoothDistance);
+  }
+  vec2 q = abs(p) / b;
+  float power = kind < 1.5 ? 2.0 : uForms[index].w;
+  float sum = pow(q.x, power) + pow(q.y, power);
+  float radial = pow(sum, 1.0 / power);
+  if (radial < 0.0001) return vec2(-min(b.x, b.y), min(b.x, b.y));
+  vec2 gradient = pow(q, vec2(power - 1.0)) / b / pow(sum, (power - 1.0) / power);
+  float distance = (radial - 1.0) / max(length(gradient), 0.0001);
+  return vec2(distance, -distance);
+}
+
 // ── x is the distance to the merged outline, y how deep the point sits inside it, without creases
 vec2 field(vec2 p) {
   float joined = 1e5;
@@ -45,10 +72,12 @@ vec2 field(vec2 p) {
     vec2 c = p - uBoxes[i].xy;
     vec2 b = uBoxes[i].zw;
     float r = uForms[i].x;
-    float own = roundedBox(c, b, r);
+    vec2 shape = shapeDistance(c, b, i);
+    float own = shape.x;
     if (uForms[i].y > 0.0) joined = blend(joined, own, uForms[i].y);
     else apart = min(apart, own);
     if (own < 0.0) {
+      if (uForms[i].z > 0.5) { inset = max(inset, shape.y); continue; }
       vec2 edges = max(b - sqrt(c * c + vec2(0.01)), 0.0) + r + 0.001;
       float round = r / min(b.x, b.y);
       round *= round;
