@@ -64,7 +64,7 @@ const css = `
 const materialAttributes = new Map(numericKeys.map((key) => [kebab(key), key]));
 
 export class EdinstvoGlass extends Base {
-  static observedAttributes = ["source", "live", "tint", "light-color", "adaptation", "foreground", "shape", "curvature", "path", "view-box", "fill-rule", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
+  static observedAttributes = ["source", "live", "tint", "light-color", "adaptation", "foreground", "dispersion-mode", "shape", "curvature", "path", "view-box", "fill-rule", "appear", "layer", ...motionKeys, ...materialAttributes.keys()];
 
   protected surface: GlassSurface;
   private group: EdinstvoGlassGroup | null = null;
@@ -201,8 +201,8 @@ export class EdinstvoGlass extends Base {
     if (tint) overrides.tint = tint;
     const color = this.getAttribute("light-color");
     if (color) overrides.lightColor = color;
-    for (const key of ["adaptation", "foreground"] as const) {
-      const value = this.getAttribute(key);
+    for (const key of ["adaptation", "foreground", "dispersionMode"] as const) {
+      const value = this.getAttribute(kebab(key));
       if (value) overrides[key] = value;
     }
     return stackLayers(this.parentGroup?.composeMaterial(), this.material, overrides);

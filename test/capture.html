@@ -48,6 +48,8 @@
       await checkAdaptation(check, wait);
       const { checkGeometry } = await import("/test/geometry.js");
       await checkGeometry(check, wait);
+      const { checkRendering } = await import("/test/rendering.js");
+      await checkRendering(check, wait);
     }
   } catch (reason) { error = String(reason); }
   try {

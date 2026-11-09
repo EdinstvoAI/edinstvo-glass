@@ -22,6 +22,7 @@ let stacked = 0;
 const surfaces = new Set<GlassSurface>();
 let scene: MaterialLayer = {};
 let sceneMaterial: MaterialLayer = {};
+export function getSceneMaterial() { return resolveMaterial(sceneMaterial, scene); }
 
 export function setSceneMaterial(material: MaterialLayer | null) {
   sceneMaterial = material ? { ...material } : {};

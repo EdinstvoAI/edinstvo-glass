@@ -18,6 +18,13 @@ test("defaults sit inside the ranges", () => {
   for (const key of numericKeys) assert.ok(defaults[key] >= ranges[key][0] && defaults[key] <= ranges[key][1], key);
 });
 
+test("physical optics settings inherit and validate independently", () => {
+  const m = resolveMaterial({ ior: 1.52, dispersionMode: "physical" }, { ior: "inherit", dispersion: 0 });
+  assert.equal(m.ior, 1.52); assert.equal(m.dispersionMode, "physical"); assert.equal(m.dispersion, 0);
+  assert.equal(resolveMaterial({ ior: -1 }).ior, 1);
+  assert.equal(resolveMaterial(m, { dispersionMode: "default" }).dispersionMode, "artistic");
+});
+
 test("distance fields match exhaustive Euclidean distances", () => {
   const width = 7, height = 6;
   const mask = Uint8Array.from({ length: width * height }, (_, i) => i % 7 === 2 || i === 31 ? 255 : 0);

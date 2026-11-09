@@ -25,6 +25,7 @@ export interface DrawJob {
   tint: readonly [number, number, number];
   material: Material;
   paths?: PathField;
+  diagnostic?: 0 | 1 | 2;
 }
 
 const uniformNames = ["uBoxes", "uForms", "uCount", "uCanvas", "uUvOrigin", "uUvPerPx", "uTexSize", "uLightDir", "uLightColor", "uLightSoftness", "uLightDiffusion", "uReflection", "uFlow", "uTint", "uTouch", "uViewY", "uPad", "uDpr", "uPeak", "uAppear", "uLight", "uTransparency", "uThickness", "uRefraction", "uDepth", "uDispersion", "uFrost", "uSplay", "uBloom", "uGlint", "uRim", "uLift"] as const;
@@ -54,6 +55,9 @@ export class Renderer {
   private downsample = document.createElement("canvas");
   private textureLimit = maxTextureSide;
   private pathUniform: WebGLUniformLocation | null = null;
+  private iorUniform: WebGLUniformLocation | null = null;
+  private dispersionModeUniform: WebGLUniformLocation | null = null;
+  private diagnosticUniform: WebGLUniformLocation | null = null;
   private pathTextures = new Map<PathField, { texture: WebGLTexture; version: number }>();
   private emptyPath!: WebGLTexture;
   private textures = new Map<GlassImage, Texture>();
@@ -116,6 +120,9 @@ export class Renderer {
     gl.uniform1i(gl.getUniformLocation(lens, "uFrosted"), 1);
     gl.uniform1i(gl.getUniformLocation(lens, "uPathField"), 2);
     this.pathUniform = gl.getUniformLocation(lens, "uPathGrid");
+    this.iorUniform = gl.getUniformLocation(lens, "uIor");
+    this.dispersionModeUniform = gl.getUniformLocation(lens, "uPhysicalDispersion");
+    this.diagnosticUniform = gl.getUniformLocation(lens, "uDiagnostic");
     gl.activeTexture(gl.TEXTURE2);
     this.emptyPath = this.target(1, 1);
     gl.activeTexture(gl.TEXTURE0);
@@ -326,6 +333,9 @@ export class Renderer {
     gl.uniform1f(u.uTransparency, m.transparency);
     gl.uniform1f(u.uThickness, m.thickness);
     gl.uniform1f(this.strokeUniform, m.strokeThickness);
+    gl.uniform1f(this.iorUniform, m.ior);
+    gl.uniform1i(this.dispersionModeUniform, m.dispersionMode === "physical" ? 1 : 0);
+    gl.uniform1i(this.diagnosticUniform, job.diagnostic ?? 0);
     gl.uniform1f(u.uRefraction, m.refraction);
     gl.uniform1f(u.uDepth, m.depth);
     gl.uniform1f(u.uDispersion, m.dispersion);

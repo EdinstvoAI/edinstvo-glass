@@ -148,3 +148,20 @@ Paths accept path data only, not SVG markup, scripts or external resources. Use 
 Each custom outline is baked into a 256×256 signed distance tile. Raw and smoothed distances use 16-bit packed channels. Tiles share a per-surface atlas; only geometry changes rebuild it, and normal interaction reuses its GPU texture. GPU atlas caching targets at most four atlases and 32 MiB, excluding one active atlas if necessary. The distance transform follows the linear-time [Felzenszwalb–Huttenlocher method](https://cs.brown.edu/people/pfelzens/papers/dt-final.pdf).
 
 Ellipses and superellipses use distance approximations. Small SVG details, highly concave paths, large elements and extreme aspect changes may reveal sampling or normal-field artifacts. Geometry controls the optical canvas; HTML layout and hit testing stay rectangular, and custom HTML content is not automatically clipped to a path. Custom paths have no automatic box shadow. CSS fallback uses the ordinary rounded rectangle rather than reproducing arbitrary path optics.
+
+## Optical model
+
+The screen-space lens uses Snell refraction with configurable `ior` (`1`–`2.4`, default `1.5`). `ior="1"` is optically matched to air and produces no geometric refraction. The curved profile has a height bounded by half the material thickness; `depth` defines its width. Ray displacement follows the optical path through this profile, replacing the earlier artistic scale factors.
+
+Enabled environment reflections use the unpolarized dielectric Fresnel equations to mix reflected and transmitted colors. The equations and IOR convention follow [PBRT's dielectric interface description](https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission). `reflection="0"` still disables that contribution. The scene image is the available reflection source; this does not reconstruct a hidden 3D environment or simulate repeated internal reflections.
+
+`dispersion-mode="artistic"` uses intentional RGB offsets. `dispersion-mode="physical"` uses a two-term Cauchy approximation at 610, 550 and 460 nm, with a generic coefficient of 0.004 µm² scaled by `dispersion`. This coefficient is illustrative, not a fitted optical glass catalog entry or a full spectral solution. Physical channel separation follows surface incidence and optical path, not the angle of the decorative directional light. `dispersion="0"` disables channel separation in both modes.
+
+```html
+<edinstvo-glass ior="1.5" reflection="1" dispersion-mode="physical"
+  dispersion="0.5" thickness="12" depth="12" frost="0.1">
+  Content
+</edinstvo-glass>
+```
+
+The implementation remains a 2D optical approximation with an orthographic view. Tint, lift, bloom, touch warping and contrast adaptation are appearance controls, so combining them does not constitute a fully energy-conserving spectral material. No 3D rotation or separate renderer is involved.
