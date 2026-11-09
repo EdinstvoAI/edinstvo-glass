@@ -196,10 +196,8 @@ out vec4 outColor;
 void main() {
   vec2 uv = gl_FragCoord.xy * uInvSize;
   vec3 sum = textureLod(uSource, uv, uLod).rgb * ${(weights[0] / weightSum).toFixed(9)};
-  ${[1, 3, 5, 7].map(i => {
-    const weight = weights[i] + weights[i + 1];
-    const offset = i + weights[i + 1] / weight;
-    return `sum += (textureLod(uSource, uv + uStep * ${offset.toFixed(9)}, uLod).rgb + textureLod(uSource, uv - uStep * ${offset.toFixed(9)}, uLod).rgb) * ${(weight / weightSum).toFixed(9)};`;
+  ${[1, 2, 3, 4, 5, 6, 7, 8].map(i => {
+    return `sum += (textureLod(uSource, uv + uStep * ${i.toFixed(1)}, uLod).rgb + textureLod(uSource, uv - uStep * ${i.toFixed(1)}, uLod).rgb) * ${(weights[i] / weightSum).toFixed(9)};`;
   }).join("\n  ")}
   outColor = vec4(sum, 1.0);
 }`;
