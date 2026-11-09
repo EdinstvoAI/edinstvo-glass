@@ -40,7 +40,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "tsc && node --test test/core.test.js",
+    "test": "tsc && node --test test/core.test.js test/server.test.js",
     "test:browser": "tsc && node test/browser.mjs",
     "demo": "tsc && node demo/serve.mjs",
     "prepublishOnly": "npm test"
