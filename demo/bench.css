@@ -1,0 +1,34 @@
+:root { --panel: #faf9f7; --line: #deded8; --ink: #252622; --muted: #73756e; --control: #f0efec; color-scheme: light; }
+:root[data-theme="dark"] { --panel: #191a18; --line: #30312e; --ink: #f0f0e9; --muted: #aaaca3; --control: #232520; color-scheme: dark; }
+html, body { margin: 0; height: 100%; font: 12px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; }
+main { position: relative; min-height: 100%; display: grid; place-content: center; gap: 24px; justify-items: center; }
+.pill { border-radius: 999px; padding: 16px 40px; color: #fff; font-size: 12px; font-weight: 500; }
+.card { width: 360px; height: 200px; }
+#group { position: relative; width: 460px; height: 110px; }
+.blob { position: absolute; top: 15px; width: 80px; height: 80px; border-radius: 40px; box-shadow: none; touch-action: none; cursor: grab; transition: none; }
+.blob.open { width: 200px; height: 110px; top: 0; border-radius: 28px; }
+[data-selected] { outline: 1px dashed #fff; outline-offset: 7px; }
+#controls { position: fixed; top: 16px; right: 16px; z-index: 10; display: grid; grid-template-columns: minmax(0, 1fr) 104px 38px; align-items: center; gap: 8px; box-sizing: border-box; width: 312px; max-height: calc(100vh - 32px); overflow: auto; padding: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 40px #00000014; font-size: 11px; }
+.inspector-heading { grid-column: 1 / -1; margin: 0; min-width: 0; }
+.inspector-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin-bottom: 2px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; letter-spacing: .03em; }
+#controls strong { font-size: 13px; font-weight: 600; }
+#controls p { font-size: 10px; color: var(--muted); margin-bottom: 8px; }
+#controls button, #controls select, #controls textarea, .path-editor input { font: inherit; color: var(--ink); border: 1px solid var(--line); border-radius: 5px; background: var(--control); padding: 5px 7px; }
+#controls button { cursor: pointer; }
+#controls button:hover { border-color: var(--muted); }
+#controls select { grid-column: 2 / -1; width: 100%; }
+#controls label { min-width: 0; overflow-wrap: anywhere; }
+#controls input[type="range"] { width: 100%; margin: 0; height: 16px; accent-color: var(--ink); cursor: pointer; }
+#controls input:disabled, #controls select:disabled { opacity: .4; cursor: default; }
+#controls output { text-align: right; color: var(--muted); font: 10px/1.4 ui-monospace, monospace; }
+.geometry-row { display: grid; grid-template-columns: 1fr 150px; align-items: center; }
+.path-editor { display: grid; gap: 6px; }
+.path-editor textarea, .path-editor input { width: 100%; box-sizing: border-box; resize: vertical; font-family: ui-monospace, monospace; font-size: 10px; }
+.geometry-row[hidden], .path-editor[hidden], button[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid #7e8970; outline-offset: 2px; }
+@media (max-width: 720px) {
+  #controls { width: 270px; max-height: 44vh; top: auto; bottom: 12px; right: 12px; }
+  .card { width: min(360px, 80vw); }
+  #group { width: min(460px, 90vw); }
+}
