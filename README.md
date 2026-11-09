@@ -50,9 +50,7 @@ Run the bench:
 npm run demo
 ```
 
-Choose **Inspect in 3D** and drag the object to rotate it. The experimental volume study traces rays through a rounded solid with independently adjustable thickness and bevel. It uses the bench background and the material controls for refraction, frost, transparency, reflection and directional light. Unsupported controls are disabled while this view is open.
-
-This study is separate from the web component renderer. It currently handles one solid, a fixed refractive index and one transmission path; repeated internal reflections, dispersion and merged objects are not implemented in this view. Rays that undergo total internal reflection use an environment approximation. The preview draws on interaction rather than continuously.
+Click a glass element to select it. The outline and inspector heading show the current target, and the controls read its settings. Merged shapes share one material: select **Edit group material** to edit that surface, or edit motion on the individual shape. Unmerged elements can have their own material settings.
 
 Test:
 

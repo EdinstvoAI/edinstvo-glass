@@ -14,9 +14,9 @@
   .blob { position: absolute; top: 15px; width: 80px; height: 80px; border-radius: 40px; box-shadow: none; touch-action: none; cursor: grab; transition: none; }
   .blob.open { width: 200px; height: 110px; top: 0; border-radius: 28px; }
   #controls { position: fixed; top: 16px; right: 16px; display: grid; grid-template-columns: auto 140px 36px; gap: 4px 8px; padding: 12px; background: #000c; color: #fff; border-radius: 8px; font-size: 12px; align-items: center; }
-  .volume-view { position: fixed; left: 12px; top: 15vh; width: max(280px, calc(100vw - 420px)); height: 65vh; border-radius: 12px; overflow: hidden; background: #171717; }
-  .volume-view canvas { display: block; width: 100%; height: calc(100% - 36px); touch-action: none; cursor: grab; }
-  .volume-view p { margin: 8px 12px; color: white; font-size: 12px; }
+  [data-selected] { outline: 2px solid #fff; outline-offset: 7px; }
+  .inspector-heading { grid-column: 1 / -1; margin: 0; max-width: 300px; }
+  #controls input:disabled { opacity: 0.35; }
   #controls { max-height: calc(100vh - 56px); overflow-y: auto; }
 </style>
 <canvas id="scene"></canvas>
@@ -32,8 +32,7 @@
 <div id="controls"></div>
 <script type="module">
   import "/dist/define.js";
-  import { defaults, motionDefaults, motionRanges, ranges } from "/dist/index.js";
-  import { volumePreview } from "/demo/volume.js";
+  import { inspectScene } from "/demo/inspector.js";
 
   const scene = document.querySelector("#scene");
   const paint = () => {
@@ -68,26 +67,6 @@
     blob.addEventListener("pointermove", (e) => { if (from) { blob.style.left = `${e.clientX - from[0]}px`; blob.style.top = `${e.clientY - from[1]}px`; } });
     blob.addEventListener("pointerup", (e) => { if (from && Math.abs(e.clientX - from[2]) < 4) blob.classList.toggle("open"); from = null; });
   }
-  const card = document.querySelector("#card");
-  const controls = document.querySelector("#controls");
-  const inputs = {};
-  const values = { ...defaults, ...motionDefaults };
-  for (const [key, [min, max]] of Object.entries({ ...ranges, ...motionRanges })) {
-    const label = document.createElement("label");
-    label.textContent = key;
-    const input = Object.assign(document.createElement("input"), { type: "range", min, max, step: max > 1 ? 1 : 0.01 });
-    const value = document.createElement("output");
-    input.addEventListener("input", () => {
-      value.textContent = (+input.value).toFixed(2);
-      card.setAttribute(key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`), input.value);
-    });
-    controls.append(label, input, value);
-    inputs[key] = { input, value };
-  }
-  for (const [key, { input, value }] of Object.entries(inputs)) {
-    input.value = values[key];
-    value.textContent = (+input.value).toFixed(2);
-  }
-  volumePreview(card, controls, scene);
+  inspectScene(document.querySelector("main"), document.querySelector("#controls"));
 </script>
 </html>
