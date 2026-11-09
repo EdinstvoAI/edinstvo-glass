@@ -36,8 +36,9 @@ export function adaptiveMaterial(base: Material, analysis: BackdropAnalysis, tin
       else high = mid;
     }
     if (reduceTransparency) low = Math.min(low, 0.2);
+    if (base.adaptation === "full" && !moreContrast && !reduceTransparency) low = Math.max(low, base.transparency - 0.18);
     material.transparency = base.transparency * (1 - strength) + low * strength;
-    if (base.adaptation === "full") material.frost = Math.max(base.frost, Math.min(1, analysis.complexity * 0.85 * strength));
+    if (base.adaptation === "full") material.frost = Math.min(1, base.frost + analysis.complexity * 0.18 * strength);
   }
   return { material, tint: effectiveTint, foreground: text, contrast: worstContrast(material.transparency) };
 }

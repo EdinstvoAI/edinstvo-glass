@@ -5,7 +5,7 @@ let probe: CanvasRenderingContext2D | null = null;
 
 export function parseColor(color: string): Rgba {
   const known = cache.get(color);
-  if (known) return known;
+  if (known) { cache.delete(color); cache.set(color, known); return known; }
   probe ??= document.createElement("canvas").getContext("2d", { willReadFrequently: true });
   if (!probe) return [1, 1, 1, 1];
   probe.clearRect(0, 0, 1, 1);
@@ -15,6 +15,7 @@ export function parseColor(color: string): Rgba {
   const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data;
   const rgba: Rgba = a ? [r / 255, g / 255, b / 255, a / 255] : [0, 0, 0, 0];
   cache.set(color, rgba);
+  if (cache.size > 256) cache.delete(cache.keys().next().value!);
   return rgba;
 }
 

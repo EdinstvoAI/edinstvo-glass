@@ -6,6 +6,7 @@ import { defaults, numericKeys, ranges, readValue, resolveMaterial, sceneLayer, 
 import { adaptiveMaterial, contrast, luminance } from "../dist/adaptation.js";
 import { resolveGeometry } from "../dist/geometry.js";
 import { distanceTransform } from "../dist/distance-field.js";
+import { AdaptiveTransition } from "../dist/adaptive-transition.js";
 
 test("later layers win and values stay in range", () => {
   const material = resolveMaterial(defaults, { frost: 4, refraction: -1, depth: Number.NaN });
@@ -16,6 +17,21 @@ test("later layers win and values stay in range", () => {
 
 test("defaults sit inside the ranges", () => {
   for (const key of numericKeys) assert.ok(defaults[key] >= ranges[key][0] && defaults[key] <= ranges[key][1], key);
+});
+
+test("adaptive transitions are continuous, frame-rate independent and settle", () => {
+  const initial = { tint: [0, 0, 0], foreground: [1, 1, 1], transparency: 0.85, frost: 0 };
+  const target = { tint: [1, 1, 1], foreground: [0, 0, 0], transparency: 0.5, frost: 0.8 };
+  const coarse = new AdaptiveTransition(initial), fine = new AdaptiveTransition(initial);
+  const first = coarse.step(target, 1 / 60, 300);
+  assert.ok(first.tint[0] > 0 && first.tint[0] < 0.3);
+  assert.equal(coarse.moving, true);
+  for (let i = 1; i < 18; i++) coarse.step(target, 1 / 60, 300);
+  for (let i = 0; i < 36; i++) fine.step(target, 1 / 120, 300);
+  assert.ok(Math.abs(coarse.value.transparency - fine.value.transparency) < 1e-9);
+  for (let i = 0; i < 120; i++) coarse.step(target, 1 / 60, 300);
+  assert.deepEqual(coarse.value, target); assert.equal(coarse.moving, false);
+  assert.deepEqual(coarse.step(initial, 1 / 60, 0), initial);
 });
 
 test("physical optics settings inherit and validate independently", () => {
@@ -50,12 +66,15 @@ test("geometry rejects markup and unbounded paths without accepting prototype ke
 
 test("adaptive contrast covers the sampled extremes without changing the material", () => {
   const samples = [[0, 0, 0], [1, 1, 1]];
-  const base = resolveMaterial({ adaptation: "full", frost: 0.1 });
+  const base = resolveMaterial({ adaptation: "contrast", frost: 0.1 });
   const snapshot = { ...base };
   const result = adaptiveMaterial(base, { mean: [0.5, 0.5, 0.5], samples, complexity: 1, dark: false }, [1, 1, 1], null);
   assert.ok(result.contrast >= 4.49);
   assert.ok(result.material.transparency < base.transparency);
-  assert.ok(result.material.frost > base.frost);
+  assert.equal(result.material.frost, base.frost);
+  const gentle = adaptiveMaterial({ ...base, adaptation: "full" }, { mean: [0.5, 0.5, 0.5], samples, complexity: 1, dark: false }, [1, 1, 1], null);
+  assert.ok(gentle.material.transparency >= base.transparency - 0.18);
+  assert.ok(gentle.material.frost <= base.frost + 0.18);
   assert.deepEqual(base, snapshot);
   assert.equal(luminance([0, 0, 0]), 0);
   assert.equal(luminance([1, 1, 1]), 1);

@@ -1,8 +1,9 @@
 import { createReadStream, existsSync, statSync, realpathSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".map": "application/json" };
 const port = process.env.PORT === undefined ? 4173 : Number(process.env.PORT);
 if (!Number.isInteger(port) || port < 0 || port > 65535) throw new RangeError("Invalid PORT");

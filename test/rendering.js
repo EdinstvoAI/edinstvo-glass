@@ -4,7 +4,8 @@ export async function checkRendering(check, wait) {
   const source = document.createElement("canvas"); source.width = source.height = 128;
   source.getContext("2d").fillRect(0, 0, 128, 128);
   let diagnostic = 1;
-  renderer.draw = function(job) { return draw.call(this, { ...job, diagnostic }); };
+  let dispersionMode = "";
+  renderer.draw = function(job) { if (job.target.canvas === group.shadowRoot.querySelector("canvas")) dispersionMode = job.material.dispersionMode; return draw.call(this, { ...job, diagnostic }); };
   const group = document.createElement("edinstvo-glass-group");
   group.style.cssText = "position:fixed;left:10px;top:10px;width:240px;height:140px";
   group.source = source;
@@ -41,7 +42,9 @@ export async function checkRendering(check, wait) {
     let error = 0;
     for (let i = 0; i < air.length; i += 4) if (air[i + 3] > 250) error = Math.max(error, Math.abs(air[i] - 128), Math.abs(air[i + 1] - 128));
     check("air IOR introduces no refraction", error <= 1);
+    group.style.setProperty("--glass-dispersion-mode", "physical");
     group.setAttribute("ior", "1.5"); await wait(150);
+    check("dispersion mode accepts a CSS token", dispersionMode === "physical");
     check("glass IOR changes optical displacement", read().data.some((value, i) => i % 4 < 2 && air[i + 3 - i % 4] > 250 && Math.abs(value - air[i]) > 2));
 
     group.remove(); diagnostic = 1;

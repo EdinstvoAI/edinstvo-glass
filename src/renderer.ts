@@ -175,6 +175,7 @@ export class Renderer {
     const scale = Math.min(1, 3 / Math.max(key, 0.25));
     const width = Math.max(4, Math.ceil(entry.width * scale));
     const height = Math.max(4, Math.ceil(entry.height * scale));
+    const resized = !cached || cached.width !== width || cached.height !== height;
     let blur = cached;
     if (!blur || blur.width !== width || blur.height !== height) {
       if (blur) { gl.deleteTexture(blur.texture); gl.deleteTexture(blur.across); }
@@ -187,7 +188,7 @@ export class Renderer {
     gl.useProgram(this.lens);
     blur.frame = entry.frame;
     entry.blurs.set(key, blur);
-    if (!cached) this.trim(entry);
+    if (resized) this.trim(entry);
     return blur.texture;
   }
 

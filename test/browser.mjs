@@ -2,8 +2,9 @@ import { spawn } from "node:child_process";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const types = { ".html": "text/html", ".js": "text/javascript" };
 const browser = process.argv[2] ?? "safari";
 

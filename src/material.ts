@@ -21,6 +21,7 @@ export interface Material {
   tint: string;
   adaptation: "off" | "tint" | "contrast" | "full";
   adaptationStrength: number;
+  adaptationDuration: number;
   foreground: string;
   ior: number;
   dispersionMode: "artistic" | "physical";
@@ -58,12 +59,13 @@ export const ranges: Record<NumericKey, readonly [number, number]> = {
   frost: [0, 1],
   splay: [0, 1],
   adaptationStrength: [0, 1],
+  adaptationDuration: [0, 1000],
   ior: [1, 2.4],
 };
 
 export const numericKeys = Object.keys(ranges) as NumericKey[];
 
-export const defaults: Material = { thickness: 6, strokeThickness: 1, bloom: 0.2, light: 0.3, glint: 0, rim: 0.35, lift: 0.15, lightAngle: -45, transparency: 0.85, refraction: 0.3, depth: 6, dispersion: 0.2, frost: 0.7, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0, adaptation: "off", adaptationStrength: 1, foreground: "auto", ior: 1.5, dispersionMode: "artistic" };
+export const defaults: Material = { thickness: 6, strokeThickness: 1, bloom: 0.2, light: 0.3, glint: 0, rim: 0.35, lift: 0.15, lightAngle: -45, transparency: 0.85, refraction: 0.3, depth: 6, dispersion: 0.2, frost: 0.7, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0, adaptation: "off", adaptationStrength: 1, adaptationDuration: 300, foreground: "auto", ior: 1.5, dispersionMode: "artistic" };
 
 export const clampValue = (key: NumericKey, value: number) => {
   const [min, max] = ranges[key];

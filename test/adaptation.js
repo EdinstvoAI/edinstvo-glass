@@ -8,6 +8,7 @@ export async function checkAdaptation(check, wait) {
   const glass = document.createElement("edinstvo-glass");
   glass.style.cssText = "position:fixed;left:20px;top:200px;width:160px;height:90px";
   glass.source = source;
+  glass.setAttribute("adaptation-duration", "0");
   glass.textContent = "Adaptive glass";
   document.body.append(glass);
   try {
@@ -22,5 +23,19 @@ export async function checkAdaptation(check, wait) {
     glass.setAttribute("adaptation", "off");
     await wait(150);
     check("local off overrides scene adaptation", !glass.hasAttribute("data-glass-contrast") && !glass.style.getPropertyValue("--glass-foreground"));
+    setSceneMaterial(null);
+    glass.style.color = "white"; paint("white");
+    glass.setAttribute("adaptation-duration", "300");
+    glass.setAttribute("adaptation", "full");
+    await wait(80);
+    check("adaptation interpolates instead of switching instantly", glass.hasAttribute("data-glass-adapting") && glass.style.getPropertyValue("--glass-foreground") !== "rgb(0 0 0)");
+    await wait(1100);
+    check("adaptive animation settles", !glass.hasAttribute("data-glass-adapting"));
+    const { Renderer } = await import("/dist/renderer.js");
+    const renderer = Renderer.shared, draw = renderer.draw;
+    let draws = 0;
+    renderer.draw = function(job) { if (job.target.canvas === glass.shadowRoot.querySelector("canvas")) draws++; return draw.call(this, job); };
+    try { await wait(200); check("settled adaptation stops drawing", draws === 0); }
+    finally { renderer.draw = draw; }
   } finally { setSceneMaterial(null); glass.remove(); }
 }

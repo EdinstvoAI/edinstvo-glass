@@ -1,10 +1,11 @@
 import { type Backdrop, type GlassSource, resolveBackdrop } from "./backdrop.js";
 import { resolveTint, prefersDark } from "./color.js";
-import { BackdropAnalyzer, adaptiveMaterial } from "./adaptation.js";
+import { BackdropAnalyzer, adaptiveMaterial, type BackdropAnalysis, type Rgb } from "./adaptation.js";
+import { AdaptiveTransition, type AdaptiveAppearance } from "./adaptive-transition.js";
 import { cornerRadius, lightVector, softPeak, uvTransform, readGeometry, shapeCodes, type GeometryLayer } from "./geometry.js";
 import { GeometryAtlas } from "./distance-field.js";
 import { type Motion, Shape, type ShapeBox, Spring, motionKeys, resolveMotion, still } from "./interaction.js";
-import { type MaterialLayer, type SceneLight, kebab, numericKeys, readValue, resolveMaterial, sceneLayer, stackLayers } from "./material.js";
+import { type Material, type MaterialLayer, type SceneLight, kebab, numericKeys, readValue, resolveMaterial, sceneLayer, stackLayers } from "./material.js";
 import { Renderer, maxShapes } from "./renderer.js";
 
 export interface GlassOptions {
@@ -17,8 +18,6 @@ export interface GlassOptions {
 }
 
 const pad = 32;
-const stackBudget = 8;
-let stacked = 0;
 const surfaces = new Set<GlassSurface>();
 let scene: MaterialLayer = {};
 let sceneMaterial: MaterialLayer = {};
@@ -49,7 +48,6 @@ function tick(now: number) {
   const dt = Math.min((now - lastTick) / 1000, 1 / 30);
   lastTick = now;
   Renderer.shared?.nextFrame();
-  stacked = 0;
   let again = false;
   for (const surface of surfaces) again = surface.update(dt) || again;
   if (again) wake();
@@ -118,6 +116,9 @@ export class GlassSurface {
   private moreContrast = false;
   private reduceTransparency = false;
   private forcedColors = false;
+  private adaptationTransition: AdaptiveTransition | null = null;
+  private adaptationTarget: { base: Material; analysis: BackdropAnalysis; value: ReturnType<typeof adaptiveMaterial> } | null = null;
+  private naturalForeground: Rgb | null = null;
 
   constructor(private host: HTMLElement, private canvas: HTMLCanvasElement, private options: GlassOptions = {}, private group = false) {
     this.context = canvas.getContext("2d")!;
@@ -142,6 +143,8 @@ export class GlassSurface {
   }
 
   disconnect() {
+    this.adaptationTransition = null; this.adaptationTarget = null; this.naturalForeground = null;
+    delete this.host.dataset.glassAdapting;
     this.analyzer?.destroy(); this.analyzer = null;
     this.host.style.removeProperty("--glass-foreground");
     delete this.host.dataset.glassContrast;
@@ -214,8 +217,10 @@ export class GlassSurface {
     if (lightColor) tokens.lightColor = lightColor;
     const foreground = style.getPropertyValue("--glass-text-color").trim();
     const adaptation = style.getPropertyValue("--glass-adaptation").trim();
+    const dispersionMode = style.getPropertyValue("--glass-dispersion-mode").trim();
     if (foreground) tokens.foreground = foreground;
     if (adaptation) tokens.adaptation = adaptation;
+    if (dispersionMode) tokens.dispersionMode = dispersionMode;
     this.material = resolveMaterial(stackLayers(sceneMaterial, scene, tokens as MaterialLayer, this.options.material));
     this.moreContrast = matchMedia("(prefers-contrast: more)").matches;
     this.reduceTransparency = matchMedia("(prefers-reduced-transparency: reduce)").matches;
@@ -224,10 +229,13 @@ export class GlassSurface {
     if (this.material.adaptation === "off" || !this.material.adaptationStrength) {
       this.analyzer?.destroy(); this.analyzer = null;
       delete this.host.dataset.glassContrast;
-      if (this.material.foreground === "auto") this.host.style.removeProperty("--glass-foreground");
+      this.adaptationTarget = null;
+      if (!this.adaptationTransition && this.material.foreground === "auto") this.host.style.removeProperty("--glass-foreground");
     }
-    if (this.material.foreground !== "auto") this.host.style.setProperty("--glass-foreground", this.material.foreground);
-    else if (this.material.adaptation === "tint") this.host.style.removeProperty("--glass-foreground");
+    if (!this.adaptationTransition) {
+      if (this.material.foreground !== "auto") this.host.style.setProperty("--glass-foreground", this.material.foreground);
+      else if (this.material.adaptation === "tint") this.host.style.removeProperty("--glass-foreground");
+    }
     this.layer = parseInt(style.zIndex) || 0;
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.tint = resolveTint(this.material.tint);
@@ -244,6 +252,7 @@ export class GlassSurface {
   }
 
   private get moving() {
+    if (this.adaptationTransition?.moving) return true;
     if (!this.appear.settled) return true;
     for (const shape of this.shapes.values()) if (shape.moving || shape.pressed) return true;
     return false;
@@ -288,7 +297,7 @@ export class GlassSurface {
     if (skip) return false;
 
     try {
-      this.paint(backdrop, rect, list);
+      this.paint(backdrop, rect, list, dt);
     } catch (error) {
       console.warn("@edinstvo/glass: can't read this backdrop, falling back to CSS.", error);
       this.fallBack();
@@ -296,7 +305,7 @@ export class GlassSurface {
     }
     this.forced = false;
     this.signature = signature;
-    return moving || this.live;
+    return this.moving || this.live;
   }
 
   private layout() {
@@ -324,8 +333,7 @@ export class GlassSurface {
 
   private layered(backdrop: Backdrop, frame: Frame, dpr: number): Backdrop {
     const under = [...surfaces].filter((other) => other !== this && other.frame && overlap(other.frame, frame) && this.above(other));
-    if (!under.length || stacked >= stackBudget) return backdrop;
-    stacked++;
+    if (!under.length) return backdrop;
     const width = Math.round((frame.right - frame.left) * dpr);
     const height = Math.round((frame.bottom - frame.top) * dpr);
     this.stack ??= document.createElement("canvas");
@@ -344,7 +352,7 @@ export class GlassSurface {
     return { image: this.stack, width, height, live: true, map: { x: frame.left, y: frame.top, w: frame.right - frame.left, h: frame.bottom - frame.top } };
   }
 
-  private paint(source: Backdrop, rect: DOMRect, list: ShapeBox[]) {
+  private paint(source: Backdrop, rect: DOMRect, list: ShapeBox[], dt: number) {
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const left = Math.floor(Math.min(...list.map((b) => b.x - b.halfW))) - pad;
     const top = Math.floor(Math.min(...list.map((b) => b.y - b.halfH))) - pad;
@@ -353,14 +361,30 @@ export class GlassSurface {
     const frame = { left, top, right, bottom };
     const backdrop = this.layered(source, frame, dpr);
     let material = this.material, tint = this.tint;
-    if (material.adaptation !== "off" && material.adaptationStrength > 0) {
+    const adaptive = material.adaptation !== "off" && material.adaptationStrength > 0;
+    if (adaptive || this.adaptationTransition) this.naturalForeground ??= resolveTint(getComputedStyle(this.host).color);
+    const baseAppearance: AdaptiveAppearance = { tint, transparency: material.transparency, frost: material.frost, foreground: material.foreground === "auto" ? this.naturalForeground ?? [0, 0, 0] : resolveTint(material.foreground) };
+    let target = baseAppearance;
+    if (adaptive) {
       this.analyzer ??= new BackdropAnalyzer(() => this.invalidate());
       const analysis = this.analyzer.sample(backdrop, rect, prefersDark());
       if (analysis) {
-        const result = adaptiveMaterial(material, analysis, tint, material.foreground === "auto" ? null : resolveTint(material.foreground), this.moreContrast, this.reduceTransparency);
-        material = result.material; tint = result.tint;
+        if (this.adaptationTarget?.base !== material || this.adaptationTarget.analysis !== analysis) this.adaptationTarget = { base: material, analysis, value: adaptiveMaterial(material, analysis, tint, material.foreground === "auto" ? null : resolveTint(material.foreground), this.moreContrast, this.reduceTransparency) };
+        const result = this.adaptationTarget.value;
+        target = { tint: result.tint, transparency: result.material.transparency, frost: result.material.frost, foreground: material.adaptation === "tint" ? baseAppearance.foreground : result.foreground };
         this.host.dataset.glassContrast = result.contrast.toFixed(2);
-        if (material.adaptation !== "tint") this.host.style.setProperty("--glass-foreground", `rgb(${result.foreground.map(c => Math.round(c * 255)).join(" ")})`);
+      }
+    }
+    if (adaptive) this.adaptationTransition ??= new AdaptiveTransition(baseAppearance);
+    if (this.adaptationTransition) {
+      const value = this.adaptationTransition.step(target, dt, this.reduced ? 0 : material.adaptationDuration);
+      tint = value.tint;
+      material = { ...material, transparency: value.transparency, frost: value.frost };
+      this.host.style.setProperty("--glass-foreground", `rgb(${value.foreground.map(c => Math.round(c * 255)).join(" ")})`);
+      this.host.toggleAttribute("data-glass-adapting", this.adaptationTransition.moving);
+      if (!adaptive && !this.adaptationTransition.moving) {
+        this.adaptationTransition = null; this.naturalForeground = null;
+        if (material.foreground === "auto") this.host.style.removeProperty("--glass-foreground");
       }
     }
     const canvasW = Math.round((right - left) * dpr);
@@ -440,6 +464,11 @@ export class GlassSurface {
   }
 
   private fallBack() {
+    this.analyzer?.destroy(); this.analyzer = null;
+    this.adaptationTransition = null; this.adaptationTarget = null; this.naturalForeground = null;
+    delete this.host.dataset.glassAdapting;
+    delete this.host.dataset.glassContrast;
+    if (this.material.foreground === "auto") this.host.style.removeProperty("--glass-foreground");
     this.host.dataset.engine = "css";
     for (const element of this.shapes.keys()) element.dataset.engine = "css";
     this.canvas.hidden = true;
