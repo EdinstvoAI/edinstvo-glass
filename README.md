@@ -60,6 +60,16 @@ npm test
 
 [MIT](LICENSE)
 
+## Thickness
+
+`thickness` is a normalized material value from `0` to `1` (default `0.5`). It scales the screen-space refraction path, dynamic refraction and channel separation, and adjusts edge highlights. Set it like any other material property:
+
+```html
+<edinstvo-glass thickness="0.8" refraction="0.45">Content</edinstvo-glass>
+```
+
+A local material layer can override it independently; `inherit` keeps the scene value and `default` restores `0.5`. Thickness is an optical control, not a measurement in millimetres: the renderer uses a 2D signed-distance surface, an approximate normal and a fixed refractive index. It does not simulate a volumetric solid, true bevel mesh or wavelength-specific glass.
+
 ## Lighting
 
 Set the light once for the page. Any element can replace one setting and keep the rest.

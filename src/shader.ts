@@ -16,7 +16,7 @@ uniform vec2 uForms[MAX_SHAPES];
 uniform int uCount;
 uniform vec2 uCanvas, uUvOrigin, uUvPerPx, uTexSize, uLightDir;
 uniform vec3 uTint, uTouch, uLightColor;
-uniform float uViewY, uPad, uDpr, uPeak, uAppear, uLight, uTransparency, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift, uLightSoftness, uLightDiffusion, uReflection, uFlow;
+uniform float uViewY, uPad, uDpr, uPeak, uAppear, uLight, uTransparency, uThickness, uRefraction, uDepth, uDispersion, uFrost, uSplay, uBloom, uGlint, uRim, uLift, uLightSoftness, uLightDiffusion, uReflection, uFlow;
 out vec4 outColor;
 
 float roundedBox(vec2 p, vec2 b, float r) {
@@ -87,7 +87,8 @@ void main() {
   vec3 n = normalize(vec3(g * s * s / sqrt(1.02 - s * s), 1.0));
 
   vec3 ray = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.5);
-  vec2 shift = ray.xy / max(-ray.z, 0.5) * band * (0.35 + height) * uRefraction * 1.2 * uAppear;
+  float opticalPath = uThickness * 2.0;
+  vec2 shift = ray.xy / max(-ray.z, 0.5) * band * (0.35 + height) * uRefraction * 1.2 * opticalPath * uAppear;
 
   if (uFlow > 0.0) {
     float reachOut = 32.0 * uDpr;
@@ -97,7 +98,7 @@ void main() {
       dot(vec3(0.6, 0.15, 0.25), textureLod(uBackdrop, toUv(px + vec2(0.0, reachOut)), blurred).rgb - textureLod(uBackdrop, toUv(px - vec2(0.0, reachOut)), blurred).rgb)
     );
     lean /= 1.0 + length(lean) * 1.5;
-    shift += lean * max(band, 24.0 * uDpr) * (0.35 + height) * uFlow * 1.6 * uAppear;
+    shift += lean * max(band, 24.0 * uDpr) * (0.35 + height) * uFlow * 1.6 * opticalPath * uAppear;
   }
 
   vec2 fromTouch = px - uTouch.xy;
@@ -107,7 +108,7 @@ void main() {
 
   vec2 at = px + shift;
   float squeeze = log2(max(max(length(dFdx(at)), length(dFdy(at))) * texels, 1.0));
-  float k = 0.04 + uDispersion * 0.3;
+  float k = (0.04 + uDispersion * 0.3) * opticalPath;
   vec3 col = vec3(
     pick(at - shift * k, squeeze).r,
     pick(at, squeeze).g,
@@ -129,7 +130,7 @@ void main() {
 
   float toward = dot(g, uLightDir);
   float sharp = mix(6.0, 2.0, uLightSoftness);
-  col += uGlint * uLightColor * pow(s, 5.0) * (pow(max(toward, 0.0), sharp) + pow(max(-toward, 0.0), sharp) * 0.4);
+  col += uGlint * uLightColor * mix(0.65, 1.35, uThickness) * pow(s, 5.0) * (pow(max(toward, 0.0), sharp) + pow(max(-toward, 0.0), sharp) * 0.4);
 
   if (uReflection > 0.0) {
     vec3 around = textureLod(uBackdrop, toUv(px + g * (2.0 * f.y + band)), haloLod * 0.35).rgb;
@@ -139,7 +140,7 @@ void main() {
   }
 
   float line = smoothstep(-1.6 * uDpr, -0.6 * uDpr, d);
-  col += uRim * uLightColor * line * (0.18 + 0.82 * toward * toward);
+  col += uRim * uLightColor * mix(0.65, 1.35, uThickness) * line * (0.18 + 0.82 * toward * toward);
   col += touch * (0.16 + halo * 0.3);
 
   vec3 inside = clamp(col, 0.0, 1.0) * mask;

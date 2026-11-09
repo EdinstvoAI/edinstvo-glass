@@ -15,6 +15,13 @@ test("defaults sit inside the ranges", () => {
   for (const key of numericKeys) assert.ok(defaults[key] >= ranges[key][0] && defaults[key] <= ranges[key][1], key);
 });
 
+test("thickness inherits independently and accepts local overrides", () => {
+  assert.equal(defaults.thickness, 0.5);
+  const material = resolveMaterial({ thickness: 0.8, refraction: 0.4 }, { thickness: "inherit", refraction: 0.7 });
+  assert.equal(material.thickness, 0.8);
+  assert.equal(material.refraction, 0.7);
+});
+
 test("a child can opt out of merging", () => {
   assert.equal(resolveMotion({ merge: 28 }, { merge: 0 }).merge, 0);
   assert.equal(resolveMotion({ morph: 9 }).morph, 1);
