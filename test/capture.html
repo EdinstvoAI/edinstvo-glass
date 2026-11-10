@@ -48,6 +48,8 @@
       await checkBackdrop(check, wait);
       const { checkLayers } = await import("/test/layers.js");
       await checkLayers(check, wait);
+      const { checkMergeBlur } = await import("/test/merge-blur.js");
+      await checkMergeBlur(check, wait);
       const { checkAdaptation } = await import("/test/adaptation.js");
       await checkAdaptation(check, wait);
       const { checkGeometry } = await import("/test/geometry.js");

@@ -27,12 +27,14 @@
 | Dispersion CSS mode was not read | CSS and attribute configuration could disagree | Read the validated CSS token and test it through the renderer |
 | Blur resizing bypassed budget trimming; color cache was unbounded | Cached memory could grow unexpectedly | Trim resized entries and bound color parsing to 256 LRU entries |
 | File URL path conversion | Local servers could fail in paths with spaces or on Windows | Use native file URL conversion; native Windows execution remains unverified |
+| Demo merge group explicitly used frost zero | Connected figures appeared clear next to frosted surfaces | Remove the demo override; test sharp versus blurred stripe contrast before and after joining |
 
 ## Checks
 
 - 23 automated core and development-server checks pass.
-- Browser coverage includes 30 rendering checks: source ordering, clipping, ten-layer composition, transition settling, fallback, adaptation, SVG fields and optical displacement. Final results are collected at DPR 1 and DPR 2.
-- Documentation has four build checks for English/Russian topics, internal links, LLM text and script syntax. Its interactive examples, selected-shape editing, photo upload and reset were also checked in Chrome.
+- Browser coverage includes 32 rendering checks: source ordering, clipping, ten-layer composition, merge blur, transition settling, fallback, adaptation, SVG fields and optical displacement. Final results are collected at DPR 1 and DPR 2.
+- Merge blur fixture: stripe range 2/255 before and after joining, versus 255/255 with frost disabled, at both DPR values. A group still uses one shared material; child materials are not interpolated across a bridge.
+- Documentation has five build checks for English/Russian topics, internal links, LLM text, script syntax and correctly escaped API examples. Its interactive examples, selected-shape editing, photo upload and reset were also checked in Chrome.
 - Merged normal jumps: 7/255 at DPR 1 and 4/255 at DPR 2 in the deep-surface fixture; regression threshold 32/255.
 - Deep capsule displacement: maximum neighbor jump 2/255, mirror error 1/255 at both tested DPR values.
 - `ior=1` produces no geometric refraction in the diagnostic buffer.
