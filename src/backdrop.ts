@@ -94,7 +94,11 @@ function fromBackground(element: Element, onReady: () => void): Backdrop | null 
 }
 
 function discover(host: HTMLElement, rect: DOMRect, onReady: () => void): Backdrop | null {
-  const stack = document.elementsFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  const x = Math.max(0, Math.min(innerWidth - 1, rect.left + rect.width / 2));
+  const y = Math.max(0, Math.min(innerHeight - 1, rect.top + rect.height / 2));
+  let stack = document.elementsFromPoint(x, y);
+  const hostIndex = stack.indexOf(host);
+  if (hostIndex >= 0) stack = stack.slice(hostIndex + 1);
   for (const element of stack) {
     if (element === host || host.contains(element) || element.hasAttribute("data-engine")) continue;
     if (element instanceof HTMLImageElement || element instanceof HTMLCanvasElement || element instanceof HTMLVideoElement) {

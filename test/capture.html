@@ -14,6 +14,11 @@
 <script type="module">
   const checks = {};
   const notes = [];
+  const getContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function(type, settings) {
+    return getContext.call(this, type, type === "2d" ? { ...settings, willReadFrequently: true } : settings);
+  };
+  notes.push("Pixel checks request readable 2D canvases; WebGL rendering is unchanged.");
   const warn = console.warn;
   console.warn = (...args) => { notes.push(args.join(" ")); warn(...args); };
   const webgl = Boolean(document.createElement("canvas").getContext("webgl2"));
@@ -43,7 +48,21 @@
     await import("/dist/define.js");
     await wait(1200);
     check("glass stays on webgl", !webgl || document.querySelector("#page edinstvo-glass").dataset.engine === "webgl");
-  } catch (reason) { error = String(reason); }
+    if (webgl) {
+      const { checkBackdrop } = await import("/test/backdrop.js");
+      await checkBackdrop(check, wait);
+      const { checkLayers } = await import("/test/layers.js");
+      await checkLayers(check, wait);
+      const { checkMergeBlur } = await import("/test/merge-blur.js");
+      await checkMergeBlur(check, wait);
+      const { checkAdaptation } = await import("/test/adaptation.js");
+      await checkAdaptation(check, wait);
+      const { checkGeometry } = await import("/test/geometry.js");
+      await checkGeometry(check, wait);
+      const { checkRendering } = await import("/test/rendering.js");
+      await checkRendering(check, wait);
+    }
+  } catch (reason) { error = [String(reason), reason?.stack].filter(Boolean).join("\n"); }
   try {
     const decode = HTMLImageElement.prototype.decode;
     HTMLImageElement.prototype.decode = () => Promise.reject(new Error("refused"));
@@ -57,7 +76,8 @@
     await wait(1200);
     HTMLImageElement.prototype.decode = decode;
     check("falls back to css when refused", glass.dataset.engine === "css");
-  } catch (reason) { error ??= String(reason); }
+  } catch (reason) { error ??= [String(reason), reason?.stack].filter(Boolean).join("\n"); }
+  HTMLCanvasElement.prototype.getContext = getContext;
   window.result = { agent: navigator.userAgent, webgl, notes, checks, error };
   await fetch("/result", { method: "POST", body: JSON.stringify(window.result) });
 </script>

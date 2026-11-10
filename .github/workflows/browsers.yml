@@ -20,4 +20,8 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
+      - if: matrix.browser == 'safari'
+        run: sudo safaridriver --enable
       - run: npm run test:browser -- ${{ matrix.browser }}
+        env:
+          WAIT: 120000
