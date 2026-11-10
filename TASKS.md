@@ -5,6 +5,7 @@
 - [x] Document the shared merged material and correct double-escaped API examples in both languages.
 - [x] Recheck adaptation transitions, merged edges and partially visible surfaces: 32 browser checks pass at DPR 1 and 2.
 - [ ] Show the revised design to Makar. Visual acceptance remains pending.
-- [ ] Publish 1.1.4 at Makar's request on 10 November 2026. Package tests and 32 local Safari checks pass; publication and hosted documentation update remain pending.
+- [x] Publish 1.1.4 at Makar's request. Merged into main and published through GitHub Actions on 11 November 2026. Safari 27.2 CI failures remain open and are documented in the changelog and audit.
+- [ ] Investigate Safari 27.2 CI backdrop/layer failures and uninitialized merge canvas; retain the failing checks.
 
 Commit each completed change separately. Do not publish the landing page. Do not add 3D rendering.
