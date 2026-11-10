@@ -9,4 +9,6 @@
 - Reuse rendering resources and bound caches. Restore the full Gaussian kernel to avoid sampling stripes.
 - Add rendering regressions for merged edges, deep lenses, blur, adaptation and layered composition.
 
+Known issue: Safari 27.2 on GitHub's macOS runner fails backdrop/layer pixel checks and the merge fixture can reach an uninitialized canvas. Firefox CI and local Safari 27.0.1 checks passed. Safari 27.2 compatibility is not established by this release.
+
 The optical model remains a two-dimensional, screen-space approximation. Reflections use the supplied scene image. No separate 3D renderer is included.

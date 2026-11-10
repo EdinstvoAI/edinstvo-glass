@@ -47,6 +47,5 @@
 - SVG fields are rasterized at 256×256 per shape. Very small details, extreme aspect ratios and large concave shapes still need visual review.
 - Text contrast is estimated from sparse background samples before final optical effects. Audit final text independently.
 - Custom geometry leaves rectangular DOM layout/hit testing and does not automatically clip arbitrary HTML content.
-- Local checks ran in Chrome; new Safari, Firefox and Windows results have not been collected in this session. Existing browser CI contains the new regression checks.
-- README and the separate `edinstvo-glass-site` repository document the new APIs. The earlier approval-service failure was resolved by preparing, testing and applying a scoped patch. Development-only APIs are explicitly marked as unreleased.
-- Changes are in `Dev`; the new APIs have not been published to npm in this session.
+- Chrome DPR 1/2, local Safari 27.0.1 and Firefox CI checks passed. Safari 27.2 on GitHub's macOS runner fails backdrop/layer pixel checks; the merge fixture also reaches an uninitialized canvas. The cause remains unresolved. Native Windows execution remains unverified.
+- README and the separate `edinstvo-glass-site` repository document the new APIs. Version 1.1.4 is being released with the Safari CI limitation recorded rather than treating the failed job as a pass.
