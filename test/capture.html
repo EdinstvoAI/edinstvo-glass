@@ -57,7 +57,7 @@
       const { checkRendering } = await import("/test/rendering.js");
       await checkRendering(check, wait);
     }
-  } catch (reason) { error = String(reason); }
+  } catch (reason) { error = reason?.stack ?? String(reason); }
   try {
     const decode = HTMLImageElement.prototype.decode;
     HTMLImageElement.prototype.decode = () => Promise.reject(new Error("refused"));
@@ -71,7 +71,7 @@
     await wait(1200);
     HTMLImageElement.prototype.decode = decode;
     check("falls back to css when refused", glass.dataset.engine === "css");
-  } catch (reason) { error ??= String(reason); }
+  } catch (reason) { error ??= reason?.stack ?? String(reason); }
   window.result = { agent: navigator.userAgent, webgl, notes, checks, error };
   await fetch("/result", { method: "POST", body: JSON.stringify(window.result) });
 </script>
