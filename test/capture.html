@@ -14,6 +14,11 @@
 <script type="module">
   const checks = {};
   const notes = [];
+  const getContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function(type, settings) {
+    return getContext.call(this, type, type === "2d" ? { ...settings, willReadFrequently: true } : settings);
+  };
+  notes.push("Pixel checks request readable 2D canvases; WebGL rendering is unchanged.");
   const warn = console.warn;
   console.warn = (...args) => { notes.push(args.join(" ")); warn(...args); };
   const webgl = Boolean(document.createElement("canvas").getContext("webgl2"));
@@ -72,6 +77,7 @@
     HTMLImageElement.prototype.decode = decode;
     check("falls back to css when refused", glass.dataset.engine === "css");
   } catch (reason) { error ??= [String(reason), reason?.stack].filter(Boolean).join("\n"); }
+  HTMLCanvasElement.prototype.getContext = getContext;
   window.result = { agent: navigator.userAgent, webgl, notes, checks, error };
   await fetch("/result", { method: "POST", body: JSON.stringify(window.result) });
 </script>
