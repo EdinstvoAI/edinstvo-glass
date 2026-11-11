@@ -7,13 +7,14 @@
 <link rel="stylesheet" href="/demo/bench.css">
 <canvas id="scene"></canvas>
 <main>
-  <edinstvo-glass id="card" class="card"></edinstvo-glass>
-  <edinstvo-glass class="pill" thickness="18" depth="12" refraction="0.8"
+  <edinstvo-glass id="card" class="card" source="#scene" thickness="24" depth="18"
+    refraction="0.85" frost="0.15" transparency="0.98" lift="0"></edinstvo-glass>
+  <edinstvo-glass class="pill" source="#scene" thickness="18" depth="12" refraction="0.8"
     dispersion="0.45" frost="0.25" transparency="0.98" lift="0" appear>Glass</edinstvo-glass>
-  <edinstvo-glass-group id="group" transparency="0.99" lift="0" refraction="0.55" depth="18" dispersion="0.3" rim="0.5">
-    <edinstvo-glass class="blob" id="a" merge="28"></edinstvo-glass>
-    <edinstvo-glass class="blob" id="b" style="left:170px" merge="28"></edinstvo-glass>
-    <edinstvo-glass class="blob wide" id="c" style="left:340px"></edinstvo-glass>
+  <edinstvo-glass-group id="group" source="#scene" transparency="0.99" lift="0" refraction="0.55" depth="18" dispersion="0.3" rim="0.5">
+    <edinstvo-glass class="blob" id="a" source="#scene" merge="28"></edinstvo-glass>
+    <edinstvo-glass class="blob" id="b" source="#scene" style="left:170px" merge="28"></edinstvo-glass>
+    <edinstvo-glass class="blob wide" id="c" source="#scene" style="left:340px"></edinstvo-glass>
   </edinstvo-glass-group>
 </main>
 <div id="controls"></div>
@@ -22,6 +23,7 @@
   import { inspectScene } from "/demo/inspector.js";
 
   const scene = document.querySelector("#scene");
+  const surfaces = document.querySelectorAll("edinstvo-glass, edinstvo-glass-group");
   const paint = () => {
     scene.width = innerWidth * 2;
     scene.height = innerHeight * 2;
@@ -33,17 +35,22 @@
     c.fillStyle = sky;
     c.fillRect(0, 0, scene.width, scene.height);
     c.strokeStyle = "#fff";
-    c.lineWidth = 6;
-    for (let x = 0; x < scene.width; x += 320) {
-      c.beginPath();
+    c.lineWidth = 3;
+    c.beginPath();
+    for (let x = 0; x < scene.width; x += 64) {
       c.moveTo(x, 0);
       c.lineTo(x, scene.height);
-      c.stroke();
     }
+    for (let y = 0; y < scene.height; y += 64) {
+      c.moveTo(0, y);
+      c.lineTo(scene.width, y);
+    }
+    c.stroke();
     c.fillStyle = "#111";
     c.font = "600 176px sans-serif";
     c.textAlign = "center";
     c.fillText("Единство", scene.width / 2, scene.height / 2);
+    for (const surface of surfaces) surface.invalidate();
   };
   paint();
   addEventListener("resize", paint);
