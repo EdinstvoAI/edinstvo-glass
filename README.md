@@ -155,7 +155,7 @@ Ellipses and superellipses use distance approximations. Small SVG details, highl
 
 ## Optical model
 
-The screen-space lens uses Snell refraction with configurable `ior` (`1`–`2.4`, default `1.5`). `ior="1"` is optically matched to air and produces no geometric refraction. The curved profile has a height bounded by half the material thickness; `depth` defines its width. Ray displacement follows the optical path through this profile, replacing the earlier artistic scale factors.
+The screen-space lens uses Snell refraction with configurable `ior` (`1`–`2.4`, default `1.5`). `ior="1"` is optically matched to air and produces no geometric refraction. The curved profile has a height bounded by half the material thickness. `depth` defines its width. The ray offset uses a shallow thickness correction at the bevel. At grazing angles the lens blends in a sharper backdrop sample, so the bend remains visible on frosted glass.
 
 Enabled environment reflections use the unpolarized dielectric Fresnel equations to mix reflected and transmitted colors. The equations and IOR convention follow [PBRT's dielectric interface description](https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission). `reflection="0"` still disables that contribution. The scene image is the available reflection source; this does not reconstruct a hidden 3D environment or simulate repeated internal reflections.
 
