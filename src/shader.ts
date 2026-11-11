@@ -95,15 +95,19 @@ vec2 field(vec2 p) {
   float d = min(joined, apart);
   float interior = -min(smoothJoined, smoothApart);
   float transition = smoothstep(0.0, max(2.0 * uDpr, uPeak * 0.15), -d);
-  return vec2(d, max(mix(-d, interior, transition), 0.0));
+  return vec2(d, mix(-d, interior, transition));
 }
 
 vec2 toUv(vec2 px) {
   return uUvOrigin + px * uUvPerPx;
 }
 
-vec3 pick(vec2 px, float lod) {
-  return uFrost > 0.0 ? texture(uFrosted, toUv(px)).rgb : textureLod(uBackdrop, toUv(px), lod).rgb;
+vec3 pick(vec2 px, float lod, float clarity) {
+  vec2 uv = toUv(px);
+  if (uFrost <= 0.0) return textureLod(uBackdrop, uv, lod).rgb;
+  vec3 frosted = texture(uFrosted, uv).rgb;
+  if (clarity <= 0.0) return frosted;
+  return mix(frosted, textureLod(uBackdrop, uv, lod).rgb, clarity);
 }
 
 void main() {
@@ -129,7 +133,7 @@ void main() {
   vec3 n = normalize(vec3(gradient * s / sqrt(max(1.0 - s * s, 0.0025)) * bevelHeight / band, 1.0));
 
   vec3 ray = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / uIor);
-  float opticalPath = uThickness * uDpr - bevelHeight * (1.0 - height);
+  float opticalPath = uThickness * uDpr - bevelHeight * (1.0 - height) * 0.25;
   vec2 refractionShift = ray.xy / max(-ray.z, 0.25) * opticalPath * uRefraction * uAppear;
   vec2 shift = refractionShift;
 
@@ -153,8 +157,10 @@ void main() {
 
   vec2 at = px + shift;
   float squeeze = log2(max(max(length(dFdx(at)), length(dFdy(at))) * texels, 1.0));
+  float grazing = 1.0 - n.z;
+  float clarity = smoothstep(0.16, 0.66, grazing) * smoothstep(0.0, 4.0 * uDpr * uDpr, dot(refractionShift, refractionShift));
   vec3 col;
-  if (uDispersion <= 0.0) col = pick(at, squeeze);
+  if (uDispersion <= 0.0) col = pick(at, squeeze, clarity);
   else if (uPhysicalDispersion) {
     float redIor = max(1.0, uIor + uDispersion * 0.004 * (1.0 / (0.610 * 0.610) - 1.0 / (0.550 * 0.550)));
     float blueIor = uIor + uDispersion * 0.004 * (1.0 / (0.460 * 0.460) - 1.0 / (0.550 * 0.550));
@@ -163,10 +169,10 @@ void main() {
     vec2 factor = vec2(opticalPath * uRefraction * uAppear);
     vec2 redShift = redRay.xy / max(-redRay.z, 0.25) * factor;
     vec2 blueShift = blueRay.xy / max(-blueRay.z, 0.25) * factor;
-    col = vec3(pick(at + redShift - refractionShift, squeeze).r, pick(at, squeeze).g, pick(at + blueShift - refractionShift, squeeze).b);
+    col = vec3(pick(at + redShift - refractionShift, squeeze, clarity).r, pick(at, squeeze, clarity).g, pick(at + blueShift - refractionShift, squeeze, clarity).b);
   } else {
-    float k = uDispersion * 0.3;
-    col = vec3(pick(at - shift * k, squeeze).r, pick(at, squeeze).g, pick(at + shift * k, squeeze).b);
+    vec2 split = refractionShift * uDispersion * mix(0.12, 0.45, grazing);
+    col = vec3(pick(at - split, squeeze, clarity).r, pick(at, squeeze, clarity).g, pick(at + split, squeeze, clarity).b);
   }
 
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 1.08);

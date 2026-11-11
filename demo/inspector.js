@@ -52,7 +52,9 @@ export function inspectScene(root, controls) {
     if (!selected) return;
     const current = values();
     title.textContent = selected.getAttribute("aria-label");
-    note.textContent = grouped() ? "Shared material · shape and motion are individual." : "Click an element to inspect it.";
+    note.textContent = selected.dataset.engine === "css"
+      ? "WebGL is unavailable. CSS fallback only blurs the backdrop."
+      : grouped() ? "Shared material · shape and motion are individual." : "Click an element to inspect it.";
     editGroup.hidden = !grouped();
     adaptation.value = current.adaptation;
     adaptation.disabled = grouped();
@@ -111,7 +113,7 @@ export function inspectScene(root, controls) {
     selected = element;
     selected.setAttribute("data-selected", "");
     observer.disconnect();
-    observer.observe(selected, { attributes: true, attributeFilter: [...Object.keys(ranges), ...Object.keys(motionRanges)].map(kebab).concat(["shape", "curvature", "path", "view-box", "adaptation", "dispersion-mode", "data-grouped"]) });
+    observer.observe(selected, { attributes: true, attributeFilter: [...Object.keys(ranges), ...Object.keys(motionRanges)].map(kebab).concat(["shape", "curvature", "path", "view-box", "adaptation", "dispersion-mode", "data-grouped", "data-engine"]) });
     refresh();
   }
 

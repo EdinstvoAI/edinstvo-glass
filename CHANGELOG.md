@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.5
+
+- Preserve stronger backdrop displacement at curved edges and restore detail there on frosted glass.
+- Tie artistic color separation to the refracted ray.
+- Use an explicit canvas backdrop and a grid in the dev demo. The inspector identifies CSS fallback.
+
 ## 1.1.4
 
 - Smooth backdrop adaptation, including the return to manual material settings.
