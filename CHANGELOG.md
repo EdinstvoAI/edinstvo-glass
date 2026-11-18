@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0
+## 1.1.6
 
 - Change the default material to a clearer, thicker lens. Thickness is 18 px, depth 12 px, refraction 0.65, transparency 0.96 and frost 0.18. Existing explicit settings retain their values.
 - Compute directional highlights from the surface normal and light/view half vector.
