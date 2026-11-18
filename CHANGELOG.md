@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- Change the default material to a clearer, thicker lens. Thickness is 18 px, depth 12 px, refraction 0.65, transparency 0.96 and frost 0.18. Existing explicit settings retain their values.
+- Compute directional highlights from the surface normal and light/view half vector.
+- Project environment samples along the reflected ray. Frost controls reflection roughness.
+- Reduce default bloom and lift to retain backdrop contrast. Glint now defaults to 0.35.
+
+Reflection uses the supplied 2D backdrop. The model cannot reconstruct hidden surroundings. Safari 27.2 CI compatibility remains unresolved.
+
 ## 1.1.5
 
 - Preserve stronger backdrop displacement at curved edges and restore detail there on frosted glass.

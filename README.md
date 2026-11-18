@@ -64,7 +64,7 @@ npm test
 
 ## Thickness
 
-`thickness` sets the optical distance between the front and back surfaces in CSS pixels, from `0` to `96` (default `6`). `depth` controls the curved surface profile. `strokeThickness` independently sets the visible rim width, from `0` to `8` CSS pixels (default `1`).
+`thickness` sets the optical distance between the front and back surfaces in CSS pixels, from `0` to `96` (default `18`). `depth` controls the curved surface profile. `strokeThickness` independently sets the visible rim width, from `0` to `8` CSS pixels (default `1`).
 
 ```html
 <edinstvo-glass thickness="18" stroke-thickness="1" refraction="0.45">Content</edinstvo-glass>

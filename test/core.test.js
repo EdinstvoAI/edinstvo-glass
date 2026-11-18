@@ -95,7 +95,7 @@ test("adaptation respects manual tint, strength and accessibility preferences", 
 });
 
 test("thickness inherits independently and accepts local overrides", () => {
-  assert.equal(defaults.thickness, 6);
+  assert.equal(defaults.thickness, 18);
   const material = resolveMaterial({ thickness: 0.8, refraction: 0.4 }, { thickness: "inherit", refraction: 0.7 });
   assert.equal(material.thickness, 0.8);
   assert.equal(material.refraction, 0.7);

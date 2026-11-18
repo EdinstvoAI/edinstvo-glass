@@ -189,11 +189,15 @@ void main() {
   col *= 1.0 - uLight * max(-facing, 0.0) * 0.2 * (1.0 - uLightSoftness) * (1.0 - uLightDiffusion);
 
   float toward = dot(g, uLightDir);
-  float sharp = mix(6.0, 2.0, uLightSoftness);
-  col += uGlint * uLightColor * pow(s, 5.0) * (pow(max(toward, 0.0), sharp) + pow(max(-toward, 0.0), sharp) * 0.4);
+  vec3 lightVector = normalize(vec3(uLightDir, 1.0));
+  vec3 halfVector = normalize(lightVector + vec3(0.0, 0.0, 1.0));
+  float highlight = pow(max(dot(n, halfVector), 0.0), mix(160.0, 12.0, uLightSoftness));
+  col += uGlint * uLight * uLightColor * highlight * (1.0 - uLightDiffusion * 0.5);
 
   if (uReflection > 0.0) {
-    vec3 around = textureLod(uBackdrop, toUv(px + g * (2.0 * f.y + band)), haloLod * 0.35).rgb;
+    vec3 reflectedRay = reflect(vec3(0.0, 0.0, -1.0), n);
+    vec2 environmentPoint = px + reflectedRay.xy * (band + uThickness * uDpr);
+    vec3 around = textureLod(uBackdrop, toUv(environmentPoint), haloLod * uFrost).rgb;
     float shine = 0.8 + uLight * (0.2 + 0.6 * toward);
     vec3 mirrored = clamp(around * mix(vec3(1.0), uLightColor, 0.6) * shine, 0.0, 1.0);
     float cosI = max(n.z, 0.00001);
