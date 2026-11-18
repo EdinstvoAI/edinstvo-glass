@@ -65,7 +65,7 @@ export const ranges: Record<NumericKey, readonly [number, number]> = {
 
 export const numericKeys = Object.keys(ranges) as NumericKey[];
 
-export const defaults: Material = { thickness: 6, strokeThickness: 1, bloom: 0.2, light: 0.3, glint: 0, rim: 0.35, lift: 0.15, lightAngle: -45, transparency: 0.85, refraction: 0.3, depth: 6, dispersion: 0.2, frost: 0.7, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0, adaptation: "off", adaptationStrength: 1, adaptationDuration: 300, foreground: "auto", ior: 1.5, dispersionMode: "artistic" };
+export const defaults: Material = { thickness: 18, strokeThickness: 1, bloom: 0.08, light: 0.3, glint: 0.35, rim: 0.25, lift: 0.03, lightAngle: -45, transparency: 0.96, refraction: 0.65, depth: 12, dispersion: 0.2, frost: 0.18, splay: 0, tint: "auto", lightColor: "#fff", lightSoftness: 0, lightDiffusion: 0, reflection: 0, dynamicRefraction: 0, adaptation: "off", adaptationStrength: 1, adaptationDuration: 300, foreground: "auto", ior: 1.5, dispersionMode: "artistic" };
 
 export const clampValue = (key: NumericKey, value: number) => {
   const [min, max] = ranges[key];
